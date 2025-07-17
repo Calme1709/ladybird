@@ -312,19 +312,11 @@ CSSPixels ComputedProperties::compute_line_height(CSSPixelRect const& viewport_r
             .length_resolution_context = Length::ResolutionContext { viewport_rect, font_metrics, root_font_metrics },
         };
         if (line_height.as_calculated().resolves_to_number()) {
-            auto resolved = line_height.as_calculated().resolve_number_deprecated(context);
-            if (!resolved.has_value()) {
-                dbgln("FIXME: Failed to resolve calc() line-height (number): {}", line_height.as_calculated().to_string(SerializationMode::Normal));
-                return CSSPixels::nearest_value_for(m_font_list->first().pixel_metrics().line_spacing());
-            }
+            auto resolved = line_height.as_calculated().resolve_number(context);
             return Length(resolved.value(), Length::Type::Em).to_px(viewport_rect, font_metrics, root_font_metrics);
         }
 
-        auto resolved = line_height.as_calculated().resolve_length_deprecated(context);
-        if (!resolved.has_value()) {
-            dbgln("FIXME: Failed to resolve calc() line-height: {}", line_height.as_calculated().to_string(SerializationMode::Normal));
-            return CSSPixels::nearest_value_for(m_font_list->first().pixel_metrics().line_spacing());
-        }
+        auto resolved = line_height.as_calculated().resolve_length(context);
         return resolved->to_px(viewport_rect, font_metrics, root_font_metrics);
     }
 
