@@ -225,7 +225,7 @@ public:
     bool operator==(ComputedProperties const&) const;
 
     Positioning position() const;
-    Optional<int> z_index() const;
+    Optional<int> z_index(Layout::NodeWithStyle const&) const;
 
     void set_math_depth(int math_depth);
     int math_depth() const { return m_math_depth; }

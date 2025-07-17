@@ -331,7 +331,7 @@ CSSPixels ComputedProperties::compute_line_height(CSSPixelRect const& viewport_r
     return font_metrics.line_height;
 }
 
-Optional<int> ComputedProperties::z_index() const
+Optional<int> ComputedProperties::z_index(Layout::NodeWithStyle const& layout_node) const
 {
     auto const& value = property(PropertyID::ZIndex);
     if (value.has_auto())
@@ -350,7 +350,7 @@ Optional<int> ComputedProperties::z_index() const
         return clamp(value.as_integer().integer());
     }
     if (value.is_calculated()) {
-        auto maybe_double = value.as_calculated().resolve_number_deprecated({});
+        auto maybe_double = value.as_calculated().resolve_number({ .length_resolution_context = Length::ResolutionContext::for_layout_node(layout_node) });
         if (maybe_double.has_value()) {
             // Round up on half
             return clamp(floor(maybe_double.value() + 0.5f));

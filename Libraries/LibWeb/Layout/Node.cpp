@@ -741,7 +741,7 @@ void NodeWithStyle::apply_style(CSS::ComputedProperties const& computed_style)
 
     computed_values.set_text_shadow(computed_style.text_shadow(*this));
 
-    computed_values.set_z_index(computed_style.z_index());
+    computed_values.set_z_index(computed_style.z_index(*this));
     computed_values.set_opacity(computed_style.opacity());
 
     computed_values.set_visibility(computed_style.visibility());
