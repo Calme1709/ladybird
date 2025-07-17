@@ -503,7 +503,7 @@ Length ComputedProperties::border_spacing_horizontal(Layout::Node const& layout_
         if (style_value.is_length())
             return style_value.as_length().length();
         if (style_value.is_calculated())
-            return style_value.as_calculated().resolve_length_deprecated({ .length_resolution_context = Length::ResolutionContext::for_layout_node(layout_node) }).value_or(Length(0, Length::Type::Px));
+            return style_value.as_calculated().resolve_length({ .length_resolution_context = Length::ResolutionContext::for_layout_node(layout_node) }).value_or(Length(0, Length::Type::Px));
         return {};
     };
 
@@ -525,7 +525,7 @@ Length ComputedProperties::border_spacing_vertical(Layout::Node const& layout_no
         if (style_value.is_length())
             return style_value.as_length().length();
         if (style_value.is_calculated())
-            return style_value.as_calculated().resolve_length_deprecated({ .length_resolution_context = Length::ResolutionContext::for_layout_node(layout_node) }).value_or(Length(0, Length::Type::Px));
+            return style_value.as_calculated().resolve_length({ .length_resolution_context = Length::ResolutionContext::for_layout_node(layout_node) }).value_or(Length(0, Length::Type::Px));
         return {};
     };
 
