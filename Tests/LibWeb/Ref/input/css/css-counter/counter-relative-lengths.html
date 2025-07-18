@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+    <link rel="match" href="../../../expected/css/css-counter/counter-relative-lengths-ref.html" />
+    <style>
+        #set {
+            counter-set: foo calc(1 - sign(1em - 1px));
+        }
+
+        #reset {
+            counter-reset: foo calc(1 - sign(1em - 1px));
+        }
+
+        #increment::before {
+            counter-increment: foo calc(sign(1em - 1px));
+            content: counter(foo);
+        }
+    </style>
+    <div id="reset"></div>
+    <div id="increment"></div>
+    <div id="increment"></div>
+    <div id="set"></div>
+    <div id="increment"></div>
+    <div id="increment"></div>
+</html>

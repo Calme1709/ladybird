@@ -999,9 +999,9 @@ void NodeWithStyle::apply_style(CSS::ComputedProperties const& computed_style)
 
     computed_values.set_math_depth(computed_style.math_depth());
     computed_values.set_quotes(computed_style.quotes());
-    computed_values.set_counter_increment(computed_style.counter_data(CSS::PropertyID::CounterIncrement));
-    computed_values.set_counter_reset(computed_style.counter_data(CSS::PropertyID::CounterReset));
-    computed_values.set_counter_set(computed_style.counter_data(CSS::PropertyID::CounterSet));
+    computed_values.set_counter_increment(computed_style.counter_data(CSS::PropertyID::CounterIncrement, *this));
+    computed_values.set_counter_reset(computed_style.counter_data(CSS::PropertyID::CounterReset, *this));
+    computed_values.set_counter_set(computed_style.counter_data(CSS::PropertyID::CounterSet, *this));
 
     computed_values.set_object_fit(computed_style.object_fit());
     computed_values.set_object_position(computed_style.object_position());

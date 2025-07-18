@@ -122,7 +122,7 @@ void resolve_counters(DOM::AbstractElement& element_reference)
         return;
 
     // 2. New counters are instantiated (counter-reset).
-    auto counter_reset = style.counter_data(PropertyID::CounterReset);
+    auto counter_reset = style.counter_data(PropertyID::CounterReset, *element_reference.layout_node());
     for (auto const& counter : counter_reset)
         element_reference.ensure_counters_set().instantiate_a_counter(counter.name, element_reference, counter.is_reversed, counter.value);
 
@@ -133,12 +133,12 @@ void resolve_counters(DOM::AbstractElement& element_reference)
     //    new counter.
 
     // 3. Counter values are incremented (counter-increment).
-    auto counter_increment = style.counter_data(PropertyID::CounterIncrement);
+    auto counter_increment = style.counter_data(PropertyID::CounterIncrement, *element_reference.layout_node());
     for (auto const& counter : counter_increment)
         element_reference.ensure_counters_set().increment_a_counter(counter.name, element_reference, *counter.value);
 
     // 4. Counter values are explicitly set (counter-set).
-    auto counter_set = style.counter_data(PropertyID::CounterSet);
+    auto counter_set = style.counter_data(PropertyID::CounterSet, *element_reference.layout_node());
     for (auto const& counter : counter_set)
         element_reference.ensure_counters_set().set_a_counter(counter.name, element_reference, *counter.value);
 

@@ -231,7 +231,7 @@ public:
     int math_depth() const { return m_math_depth; }
 
     QuotesData quotes() const;
-    Vector<CounterData> counter_data(PropertyID) const;
+    Vector<CounterData> counter_data(PropertyID, Layout::NodeWithStyle const&) const;
 
     ScrollbarColorData scrollbar_color(Layout::NodeWithStyle const& layout_node) const;
     ScrollbarWidth scrollbar_width() const;

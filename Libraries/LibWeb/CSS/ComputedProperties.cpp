@@ -1833,7 +1833,7 @@ QuotesData ComputedProperties::quotes() const
     return InitialValues::quotes();
 }
 
-Vector<CounterData> ComputedProperties::counter_data(PropertyID property_id) const
+Vector<CounterData> ComputedProperties::counter_data(PropertyID property_id, Layout::NodeWithStyle const& layout_node) const
 {
     auto const& value = property(property_id);
 
@@ -1850,9 +1850,7 @@ Vector<CounterData> ComputedProperties::counter_data(PropertyID property_id) con
                 if (counter.value->is_integer()) {
                     data.value = AK::clamp_to<i32>(counter.value->as_integer().integer());
                 } else if (counter.value->is_calculated()) {
-                    auto maybe_int = counter.value->as_calculated().resolve_integer_deprecated({});
-                    if (maybe_int.has_value())
-                        data.value = AK::clamp_to<i32>(*maybe_int);
+                    data.value = AK::clamp_to<i32>(*counter.value->as_calculated().resolve_integer({ .length_resolution_context = Length::ResolutionContext::for_layout_node(layout_node) }));
                 } else {
                     dbgln("Unimplemented type for {} integer value: '{}'", string_from_property_id(property_id), counter.value->to_string(SerializationMode::Normal));
                 }
