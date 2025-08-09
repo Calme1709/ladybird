@@ -33,7 +33,7 @@ def major_compiler_version_if_supported(platform: Platform, compiler: str) -> Op
     if platform.host_system == HostSystem.Windows:
         compiler = compiler.replace("clang-cl", "clang")
 
-    version = run_command([compiler, "-dumpversion"], return_output=True)
+    version = run_command([compiler, "-dumpversion"], return_output=True).output
     if not version:
         return None
 
@@ -43,12 +43,12 @@ def major_compiler_version_if_supported(platform: Platform, compiler: str) -> Op
 
     major_version = int(major_version.group(1))
 
-    version = run_command([compiler, "--version"], return_output=True)
+    version = run_command([compiler, "--version"], return_output=True).output
     if not version:
         return None
 
     if platform.host_system == HostSystem.macOS and version.find("Apple clang") != -1:
-        apple_definitions = run_command([compiler, "-dM", "-E", "-"], input="", return_output=True)
+        apple_definitions = run_command([compiler, "-dM", "-E", "-"], input="", return_output=True).output
         if not apple_definitions:
             return None
 
@@ -177,13 +177,15 @@ def pick_swift_compilers(platform: Platform, project_root: Path) -> tuple[Path, 
         print("swiftly is required to manage Swift toolchains", file=sys.stderr)
         sys.exit(1)
 
-    swiftly_toolchain_path = run_command(["swiftly", "use", "--print-location"], return_output=True, cwd=project_root)
+    swiftly_toolchain_path = run_command(
+        ["swiftly", "use", "--print-location"], return_output=True, cwd=project_root
+    ).output
     if not swiftly_toolchain_path:
         run_command(["swiftly", "install"], exit_on_failure=True, cwd=project_root)
 
         swiftly_toolchain_path = run_command(
             ["swiftly", "use", "--print-location"], return_output=True, exit_on_failure=True, cwd=project_root
-        )
+        ).output
         assert swiftly_toolchain_path
 
     swiftly_toolchain_path = Path(swiftly_toolchain_path.strip())

@@ -9,8 +9,14 @@ import subprocess
 import sys
 
 from pathlib import Path
+from typing import NamedTuple
 from typing import Optional
 from typing import Union
+
+
+class CommandResult(NamedTuple):
+    exit_code: int
+    output: Optional[str]
 
 
 def run_command(
@@ -19,7 +25,7 @@ def run_command(
     return_output: bool = False,
     exit_on_failure: bool = False,
     cwd: Union[Path, None] = None,
-) -> Optional[str]:
+) -> CommandResult:
     stdin = subprocess.PIPE if type(input) is str else None
     stdout = subprocess.PIPE if return_output else None
 
@@ -31,7 +37,7 @@ def run_command(
             if process.returncode != 0:
                 if exit_on_failure:
                     sys.exit(process.returncode)
-                return None
+                return CommandResult(process.returncode, None)
 
     except KeyboardInterrupt:
         process.send_signal(signal.SIGINT)
@@ -40,9 +46,9 @@ def run_command(
         sys.exit(process.returncode)
 
     if return_output:
-        return output.strip()
+        return CommandResult(0, output.strip())
 
-    return None
+    return CommandResult(0, None)
 
 
 def ensure_ladybird_source_dir() -> Path:
@@ -50,7 +56,7 @@ def ensure_ladybird_source_dir() -> Path:
     ladybird_source_dir = Path(ladybird_source_dir) if ladybird_source_dir else None
 
     if not ladybird_source_dir or not ladybird_source_dir.is_dir():
-        root_dir = run_command(["git", "rev-parse", "--show-toplevel"], return_output=True, exit_on_failure=True)
+        root_dir = run_command(["git", "rev-parse", "--show-toplevel"], return_output=True, exit_on_failure=True).output
         assert root_dir
 
         os.environ["LADYBIRD_SOURCE_DIR"] = root_dir

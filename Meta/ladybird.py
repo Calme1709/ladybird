@@ -298,7 +298,7 @@ def validate_cmake_version():
     # FIXME: This 3.25+ CMake version check may not be needed anymore due to vcpkg downloading a newer version
     cmake_install_message = "Please install CMake version 3.25 or newer."
 
-    cmake_version_output = run_command(["cmake", "--version"], return_output=True, exit_on_failure=True)
+    cmake_version_output = run_command(["cmake", "--version"], return_output=True, exit_on_failure=True).output
     assert cmake_version_output
 
     version_match = re.search(r"version\s+(\d+)\.(\d+)\.(\d+)?", cmake_version_output)
