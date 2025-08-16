@@ -1056,7 +1056,7 @@ void StyleComputer::collect_animation_into(DOM::Element& element, Optional<CSS::
     }
 
     // FIXME: Follow https://drafts.csswg.org/web-animations-1/#ref-for-computed-keyframes in whatever the right place is.
-    auto compute_keyframe_values = [refresh, &computed_properties, &element, &pseudo_element, this](auto const& keyframe_values) {
+    auto compute_keyframe_values = [refresh, &computed_properties, &element, &pseudo_element](auto const& keyframe_values) {
         HashMap<PropertyID, RefPtr<StyleValue const>> result;
         HashMap<PropertyID, PropertyID> longhands_set_by_property_id;
         auto property_is_set_by_use_initial = MUST(Bitmap::create(to_underlying(last_longhand_property_id) - to_underlying(first_longhand_property_id) + 1, false));
@@ -1098,12 +1098,6 @@ void StyleComputer::collect_animation_into(DOM::Element& element, Optional<CSS::
             return camel_case_string_from_property_id(a) < camel_case_string_from_property_id(b);
         };
 
-        compute_font(computed_properties, &element, pseudo_element);
-        absolutize_values(computed_properties, element);
-        Length::FontMetrics font_metrics {
-            computed_properties.font_size(),
-            computed_properties.first_available_computed_font().pixel_metrics()
-        };
         for (auto const& [property_id, value] : keyframe_values.properties) {
             bool is_use_initial = false;
 
@@ -1149,7 +1143,7 @@ void StyleComputer::collect_animation_into(DOM::Element& element, Optional<CSS::
 
                 longhands_set_by_property_id.set(physical_longhand_id, property_id);
                 property_is_set_by_use_initial.set(physical_longhand_id_bitmap_index, is_use_initial);
-                result.set(physical_longhand_id, { longhand_value.absolutized(viewport_rect(), font_metrics, m_root_element_font_metrics) });
+                result.set(physical_longhand_id, { longhand_value });
             });
         }
         return result;
@@ -1191,6 +1185,9 @@ void StyleComputer::collect_animation_into(DOM::Element& element, Optional<CSS::
             computed_properties.set_animated_property(PropertyID::Visibility, KeywordStyleValue::create(Keyword::Hidden));
         }
     }
+
+    compute_font(computed_properties, &element, pseudo_element);
+    absolutize_values(computed_properties, &element);
 }
 
 static void apply_animation_properties(DOM::Document& document, CascadedProperties& cascaded_properties, Animations::Animation& animation)
@@ -2258,33 +2255,21 @@ void StyleComputer::absolutize_values(ComputedProperties& style, GC::Ptr<DOM::El
         style.first_available_computed_font().pixel_metrics()
     };
 
-    // "A percentage value specifies an absolute font size relative to the parent element’s computed font-size. Negative percentages are invalid."
-    auto& font_size_value_slot = style.m_property_values[to_underlying(CSS::PropertyID::FontSize)];
-    if (font_size_value_slot && font_size_value_slot->is_percentage()) {
-        auto parent_font_size = get_inherit_value(CSS::PropertyID::FontSize, element)->as_length().length().to_px(viewport_rect(), font_metrics, m_root_element_font_metrics);
-        font_size_value_slot = LengthStyleValue::create(
-            Length::make_px(CSSPixels::nearest_value_for(parent_font_size * font_size_value_slot->as_percentage().percentage().as_fraction())));
-    }
+    style.absolutize_font_size(viewport_rect(), font_metrics, m_root_element_font_metrics);
+    font_metrics.font_size = style.font_size();
 
-    auto font_size = font_size_value_slot->as_length().length().to_px(viewport_rect(), font_metrics, m_root_element_font_metrics);
-    font_metrics.font_size = font_size;
-    style.set_font_size({}, font_size);
+    auto line_height = style.compute_line_height(viewport_rect(), font_metrics, m_root_element_font_metrics);
+    font_metrics.line_height = line_height;
+    style.set_line_height({}, line_height);
 
     // NOTE: Percentage line-height values are relative to the font-size of the element.
     //       We have to resolve them right away, so that the *computed* line-height is ready for inheritance.
     //       We can't simply absolutize *all* percentage values against the font size,
     //       because most percentages are relative to containing block metrics.
     auto& line_height_value_slot = style.m_property_values[to_underlying(CSS::PropertyID::LineHeight)];
-    if (line_height_value_slot && line_height_value_slot->is_percentage()) {
-        line_height_value_slot = LengthStyleValue::create(
-            Length::make_px(CSSPixels::nearest_value_for(font_size * static_cast<double>(line_height_value_slot->as_percentage().percentage().as_fraction()))));
-    }
 
-    auto line_height = style.compute_line_height(viewport_rect(), font_metrics, m_root_element_font_metrics);
-    font_metrics.line_height = line_height;
-
-    // NOTE: line-height might be using lh which should be resolved against the parent line height (like we did here already)
-    if (line_height_value_slot && line_height_value_slot->is_length())
+    // Force descendents to inherit the absolutized value
+    if (line_height_value_slot && line_height_value_slot->is_percentage())
         line_height_value_slot = LengthStyleValue::create(Length::make_px(line_height));
 
     for (size_t i = 0; i < style.m_property_values.size(); ++i) {
@@ -2294,7 +2279,8 @@ void StyleComputer::absolutize_values(ComputedProperties& style, GC::Ptr<DOM::El
         value_slot = value_slot->absolutized(viewport_rect(), font_metrics, m_root_element_font_metrics);
     }
 
-    style.set_line_height({}, line_height);
+    for (auto const& key : style.m_animated_property_values.keys())
+        style.set_animated_property(key, style.m_animated_property_values.get(key).value()->absolutized(viewport_rect(), font_metrics, m_root_element_font_metrics));
 }
 
 void StyleComputer::resolve_effective_overflow_values(ComputedProperties& style) const

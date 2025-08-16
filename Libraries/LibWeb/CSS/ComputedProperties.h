@@ -90,6 +90,7 @@ public:
     Clip clip() const;
     Display display() const;
     Float float_() const;
+    CSSPixels font_size() const;
     Color caret_color(Layout::NodeWithStyle const&) const;
     Clear clear() const;
     ColumnSpan column_span() const;
@@ -215,12 +216,11 @@ public:
         m_first_available_computed_font = m_font_list->font_for_code_point(' ');
     }
 
+    void absolutize_font_size(CSSPixelRect const& viewport_rect, Length::FontMetrics const& font_metrics, Length::FontMetrics const& root_font_metrics);
     [[nodiscard]] CSSPixels compute_line_height(CSSPixelRect const& viewport_rect, Length::FontMetrics const& font_metrics, Length::FontMetrics const& root_font_metrics) const;
 
     [[nodiscard]] CSSPixels line_height() const { return *m_line_height; }
     void set_line_height(Badge<StyleComputer> const&, CSSPixels line_height) { m_line_height = line_height; }
-    [[nodiscard]] CSSPixels font_size() const { return *m_font_size; }
-    void set_font_size(Badge<StyleComputer> const&, CSSPixels font_size) { m_font_size = font_size; }
 
     bool operator==(ComputedProperties const&) const;
 

@@ -284,6 +284,34 @@ NonnullRefPtr<Gfx::Font const> ComputedProperties::font_fallback(bool monospace,
     return *Platform::FontPlugin::the().default_font(point_size);
 }
 
+void ComputedProperties::absolutize_font_size(CSSPixelRect const& viewport_rect, Length::FontMetrics const& font_metrics, Length::FontMetrics const& root_font_metrics)
+{
+    auto absolutize_font_size_impl = [&viewport_rect, &font_metrics, &root_font_metrics](StyleValue const& style_value) -> ValueComparingNonnullRefPtr<StyleValue const> {
+        if (style_value.is_length())
+            return style_value.absolutized(viewport_rect, font_metrics, root_font_metrics);
+
+        // A percentage value specifies an absolute font size relative to the parent element’s computed font-size. Negative percentages are invalid.
+        if (style_value.is_percentage())
+            return LengthStyleValue::create(Length::make_px(font_metrics.font_size * style_value.as_percentage().percentage().as_fraction()));
+
+        if (style_value.is_calculated() && style_value.as_calculated().resolves_to_length_percentage()) {
+            CalculationResolutionContext calculation_resolution_context {
+                .percentage_basis = Length::make_px(font_metrics.font_size),
+                .length_resolution_context = Length::ResolutionContext { viewport_rect, font_metrics, root_font_metrics }
+            };
+
+            return LengthStyleValue::create(style_value.as_calculated().resolve_length(calculation_resolution_context).value());
+        }
+
+        VERIFY_NOT_REACHED();
+    };
+
+    m_property_values[to_underlying(PropertyID::FontSize)] = absolutize_font_size_impl(*m_property_values[to_underlying(PropertyID::FontSize)]);
+
+    if (auto animated_font_size_value = m_animated_property_values.get(PropertyID::FontSize); animated_font_size_value.has_value())
+        m_animated_property_values.set(PropertyID::FontSize, absolutize_font_size_impl(*m_animated_property_values.get(PropertyID::FontSize).value()));
+}
+
 CSSPixels ComputedProperties::compute_line_height(CSSPixelRect const& viewport_rect, Length::FontMetrics const& font_metrics, Length::FontMetrics const& root_font_metrics) const
 {
     auto const& line_height = property(PropertyID::LineHeight);
@@ -933,6 +961,17 @@ Float ComputedProperties::float_() const
 {
     auto const& value = property(PropertyID::Float);
     return keyword_to_float(value.to_keyword()).release_value();
+}
+
+CSSPixels ComputedProperties::font_size() const
+{
+    auto const& value = property(PropertyID::FontSize);
+
+    // We have already converted this to an absolute length in absolutize_font_size()
+    VERIFY(value.is_length());
+    VERIFY(value.as_length().length().is_absolute());
+
+    return value.as_length().length().absolute_length_to_px();
 }
 
 Color ComputedProperties::caret_color(Layout::NodeWithStyle const& node) const
