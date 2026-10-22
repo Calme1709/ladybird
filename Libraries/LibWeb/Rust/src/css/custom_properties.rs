@@ -2361,11 +2361,13 @@ fn evaluate_named_style_feature(
     context.note_style_query_dependency(name);
     let name = name.fly_string();
     let name = name.as_ref();
-    let local_registration = context
+    let local_registrations = context
         .function_local_scopes
         .last()
-        .and_then(|scope| scope.registrations.get(name))
-        .cloned();
+        .map(|scope| Rc::clone(&scope.registrations));
+    let local_registration = local_registrations
+        .as_ref()
+        .and_then(|registrations| registrations.get(name));
     let registration = context
         .function_local_scopes
         .is_empty()
@@ -2404,7 +2406,6 @@ fn evaluate_named_style_feature(
             || keyword.eq_ignore_ascii_case("unset") && registration.is_some_and(|registration| !registration.inherits)
         {
             local_registration
-                .as_ref()
                 .and_then(|registration| registration.initial_tokens.clone())
                 .or_else(|| {
                     registration.and_then(|registration| {
@@ -2412,9 +2413,7 @@ fn evaluate_named_style_feature(
                     })
                 })
         } else {
-            let local_scope = local_registration
-                .as_ref()
-                .and_then(|_| context.function_local_scopes.pop());
+            let local_scope = local_registration.and_then(|_| context.function_local_scopes.pop());
             let inherited_store = local_scope.as_ref().map_or(context.inheritance_store, |_| store);
             let result = resolve_custom_property(inherited_store, registry, name, context, recursion_depth + 1);
             if let Some(local_scope) = local_scope {
@@ -2433,7 +2432,6 @@ fn evaluate_named_style_feature(
                 registered_style_query_values_are_equal(
                     registry.expect("registered syntax requires registry"),
                     local_registration
-                        .as_ref()
                         .map(|registration| registration.syntax)
                         .unwrap_or_else(|| &registration.expect("registered property").syntax),
                     &computed,
@@ -2454,7 +2452,6 @@ fn evaluate_named_style_feature(
     if let (Some(registry), Some(syntax)) = (
         registry,
         local_registration
-            .as_ref()
             .map(|registration| registration.syntax)
             .or_else(|| registration.map(|registration| &registration.syntax)),
     ) {
