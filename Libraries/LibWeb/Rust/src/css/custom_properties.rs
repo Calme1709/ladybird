@@ -1544,17 +1544,17 @@ fn resolve_css_wide_keyword(
 fn normalize_function_tokens(
     registry: Option<&CustomPropertyRegistry>,
     syntax: &SyntaxNode,
-    tokens: &ComponentValueList,
+    tokens: ComponentValueList,
 ) -> TokenResolution {
     if matches!(syntax, SyntaxNode::Universal) {
-        return TokenResolution::Resolved(tokens.clone());
+        return TokenResolution::Resolved(tokens);
     }
     let Some(registry) = registry else {
         return TokenResolution::NotHandled;
     };
     let random_function_index = RandomFunctionIndex::default();
     let context = registry.parse_context(&random_function_index);
-    let Some(parsed) = parse_with_syntax_component_values(&context, tokens, syntax, None) else {
+    let Some(parsed) = parse_with_syntax_component_values(&context, &tokens, syntax, None) else {
         return TokenResolution::Invalid;
     };
     let computed = if matches!(parsed, StyleValueData::Calculated { .. }) {
@@ -1620,7 +1620,7 @@ fn resolve_function_local_property(
         }
     }
     match result {
-        TokenResolution::Resolved(tokens) => normalize_function_tokens(registry, registration.syntax, &tokens),
+        TokenResolution::Resolved(tokens) => normalize_function_tokens(registry, registration.syntax, tokens),
         other => other,
     }
 }
@@ -2706,17 +2706,19 @@ fn evaluate_a_custom_function<'a>(
     let mut argument_rule = HashMap::new();
 
     // 8. For each function parameter of custom function:
+    let mut arguments = arguments.into_iter();
     for (index, parameter) in custom_function.signature.parameters.iter().enumerate() {
+        let argument = arguments.next();
         // AD-HOC: Chrome (the only other implementer at time of writing) resolves the entire function to the
         //         guaranteed-invalid value if a parameter without a default value is omitted.
         //         See https://github.com/w3c/csswg-drafts/issues/14165
-        if index >= arguments.len() && parameter.default_value.is_none() {
+        if argument.is_none() && parameter.default_value.is_none() {
             return TokenResolution::Invalid;
         }
 
         // 1. Let arg value be the value of the corresponding argument in arguments, or the guaranteed-invalid value if
         //    there is no corresponding argument.
-        let arg_value = arguments.get(index).unwrap_or(&TokenResolution::Invalid);
+        let arg_value = argument.unwrap_or(TokenResolution::Invalid);
 
         // 2. Let default value be the parameter's default value.
         let default_value = custom_function.parameter_defaults[index].as_ref();
