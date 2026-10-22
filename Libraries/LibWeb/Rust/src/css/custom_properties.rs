@@ -224,14 +224,36 @@ impl CustomFunctionRegistry<'_> {
 #[derive(Clone)]
 struct FunctionLocalRegistration<'a> {
     syntax: &'a SyntaxNode,
-    initial_tokens: Option<ComponentValueList>,
+    initial_tokens: Option<Rc<ComponentValueList>>,
     is_result: bool,
 }
 
 #[derive(Clone)]
 struct FunctionLocalValue<'a> {
-    tokens: Cow<'a, ComponentValueList>,
+    tokens: FunctionLocalTokens<'a>,
     includes_substitution: bool,
+}
+
+#[derive(Clone)]
+enum FunctionLocalTokens<'a> {
+    Borrowed(&'a ComponentValueList),
+    Shared(Rc<ComponentValueList>),
+}
+
+impl FunctionLocalTokens<'_> {
+    fn as_slice(&self) -> ComponentValueSlice<'_> {
+        match self {
+            Self::Borrowed(tokens) => tokens.as_slice(),
+            Self::Shared(tokens) => tokens.as_slice(),
+        }
+    }
+
+    fn into_owned(self) -> ComponentValueList {
+        match self {
+            Self::Borrowed(tokens) => tokens.clone(),
+            Self::Shared(tokens) => Rc::unwrap_or_clone(tokens),
+        }
+    }
 }
 
 struct FunctionLocalScope<'a> {
@@ -1578,9 +1600,9 @@ fn resolve_function_local_property(
     recursion_depth: u32,
 ) -> TokenResolution {
     let Some(value) = value else {
-        return registration
-            .initial_tokens
-            .map_or(TokenResolution::Invalid, TokenResolution::Resolved);
+        return registration.initial_tokens.map_or(TokenResolution::Invalid, |tokens| {
+            TokenResolution::Resolved(Rc::unwrap_or_clone(tokens))
+        });
     };
     let mut result = if value.includes_substitution {
         substitute_arbitrary_substitution_functions(
@@ -1604,9 +1626,9 @@ fn resolve_function_local_property(
         && let Some(keyword) = single_css_wide_keyword(tokens)
     {
         if keyword.eq_ignore_ascii_case("initial") {
-            return registration
-                .initial_tokens
-                .map_or(TokenResolution::Invalid, TokenResolution::Resolved);
+            return registration.initial_tokens.map_or(TokenResolution::Invalid, |tokens| {
+                TokenResolution::Resolved(Rc::unwrap_or_clone(tokens))
+            });
         }
         if keyword.eq_ignore_ascii_case("inherit") {
             let local_scope = context
@@ -2406,7 +2428,7 @@ fn evaluate_named_style_feature(
             || keyword.eq_ignore_ascii_case("unset") && registration.is_some_and(|registration| !registration.inherits)
         {
             local_registration
-                .and_then(|registration| registration.initial_tokens.clone())
+                .and_then(|registration| registration.initial_tokens.as_deref().cloned())
                 .or_else(|| {
                     registration.and_then(|registration| {
                         registration.initial_source.as_ref().and_then(parse_substitution_values)
@@ -2734,12 +2756,12 @@ fn evaluate_a_custom_function<'a>(
 
         let value = match normalized_argument {
             TokenResolution::Resolved(tokens) => Some(FunctionLocalValue {
-                tokens: Cow::Owned(tokens),
+                tokens: FunctionLocalTokens::Shared(Rc::new(tokens)),
                 includes_substitution: false,
             }),
             TokenResolution::NotHandled => return TokenResolution::NotHandled,
             TokenResolution::Invalid | TokenResolution::Cyclic => default_value.map(|tokens| FunctionLocalValue {
-                tokens: Cow::Borrowed(tokens),
+                tokens: FunctionLocalTokens::Borrowed(tokens),
                 includes_substitution: true,
             }),
         };
@@ -2791,10 +2813,11 @@ fn evaluate_a_custom_function<'a>(
             continue;
         };
 
+        let tokens = Rc::new(tokens);
         body_rule.insert(
             name.clone(),
             FunctionLocalValue {
-                tokens: Cow::Owned(tokens.clone()),
+                tokens: FunctionLocalTokens::Shared(Rc::clone(&tokens)),
                 includes_substitution: false,
             },
         );
@@ -2808,7 +2831,7 @@ fn evaluate_a_custom_function<'a>(
         body_rule.insert(
             declaration.name.clone(),
             FunctionLocalValue {
-                tokens: Cow::Borrowed(&declaration.tokens),
+                tokens: FunctionLocalTokens::Borrowed(&declaration.tokens),
                 includes_substitution: declaration.includes_substitution,
             },
         );
