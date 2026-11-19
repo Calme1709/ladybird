@@ -1,0 +1,2 @@
+The render clock applied :hover to the disabled button: true
+Mouse entered the disabled button: true

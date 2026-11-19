@@ -363,7 +363,12 @@ static bool identity_names_element(DOM::NodeIdentity identity)
     return style_node != CSS::StyleNodeID {} && !CSS::style_node_is_text(style_node);
 }
 
-static bool parent_element_for_event_dispatch(Layout::Node& target_layout_node, GC::Ptr<DOM::Node>& node, Layout::Node*& layout_node)
+enum class DisabledControlPolicy {
+    Reject,
+    Allow,
+};
+
+static bool parent_element_for_event_dispatch(Layout::Node& target_layout_node, GC::Ptr<DOM::Node>& node, Layout::Node*& layout_node, DisabledControlPolicy disabled_controls)
 {
     auto const& read = target_layout_node.held_read();
     auto& arena = target_layout_node.node_arena();
@@ -377,14 +382,16 @@ static bool parent_element_for_event_dispatch(Layout::Node& target_layout_node, 
             layout_node = generator_layout_node;
     }
 
-    // An event aimed at a disabled form control is not dispatched, and neither is one aimed at
-    // anything under one, including the contents of its shadow tree.
     // NB: The document outlives every live row of its arena.
     VERIFY(arena.document());
     auto& document = *arena.document();
-    for (GC::Ptr<DOM::Node> ancestor = identity.resolve(document); ancestor; ancestor = ancestor->parent_or_shadow_host()) {
-        if (auto const* form_associated_element = as_if<HTML::FormAssociatedElement>(*ancestor); form_associated_element && !form_associated_element->enabled())
-            return false;
+    // NB: Hover can target disabled controls. When rejecting disabled controls, check their descendants as well,
+    // including the contents of their shadow trees.
+    if (disabled_controls == DisabledControlPolicy::Reject) {
+        for (GC::Ptr<DOM::Node> ancestor = identity.resolve(document); ancestor; ancestor = ancestor->parent_or_shadow_host()) {
+            if (auto const* form_associated_element = as_if<HTML::FormAssociatedElement>(*ancestor); form_associated_element && !form_associated_element->enabled())
+                return false;
+        }
     }
 
     while (layout_node && identity && !identity_names_element(identity)) {
@@ -486,7 +493,7 @@ EventResult EventHandler::handle_mousedown(CSSPixelPoint visual_viewport_positio
     // The topmost event target MUST be the element highest in the rendering order which is capable of being an
     // event target.
     Layout::Node* layout_node = nullptr;
-    if (!parent_element_for_event_dispatch(*target_layout_node, node, layout_node))
+    if (!parent_element_for_event_dispatch(*target_layout_node, node, layout_node, DisabledControlPolicy::Reject))
         return EventResult::Dropped;
 
     m_mousedown_target = node;
@@ -737,7 +744,7 @@ EventResult EventHandler::handle_mousemove(CSSPixelPoint visual_viewport_positio
         // The topmost event target MUST be the element highest in the rendering order which is capable of being an
         // event target.
         Layout::Node* layout_node = nullptr;
-        bool found_parent_element = parent_element_for_event_dispatch(*target_layout_node, node, layout_node);
+        bool found_parent_element = parent_element_for_event_dispatch(*target_layout_node, node, layout_node, DisabledControlPolicy::Allow);
 
         if (found_parent_element) {
             update_cursor(read, target_layout_node, *node, chrome_widget, hit_text_fragment);
@@ -892,7 +899,7 @@ EventResult EventHandler::handle_mouseup(CSSPixelPoint visual_viewport_position,
     // The topmost event target MUST be the element highest in the rendering order which is capable of being an
     // event target.
     Layout::Node* layout_node = nullptr;
-    if (!parent_element_for_event_dispatch(*target_layout_node, node, layout_node))
+    if (!parent_element_for_event_dispatch(*target_layout_node, node, layout_node, DisabledControlPolicy::Reject))
         return EventResult::Dropped;
 
     auto coordinates = compute_mouse_event_coordinates(visual_viewport_position, viewport_position, *layout_node);
@@ -1294,7 +1301,7 @@ EventResult EventHandler::dispatch_wheel_event(Layout::BegunRead const& read, La
 
     // NB: Search for the first parent of the hit target that's an element.
     Layout::Node* layout_node = nullptr;
-    if (!parent_element_for_event_dispatch(hit_layout_node, node, layout_node))
+    if (!parent_element_for_event_dispatch(hit_layout_node, node, layout_node, DisabledControlPolicy::Reject))
         return EventResult::Dropped;
 
     auto viewport_position = document->visual_viewport()->map_to_layout_viewport(visual_viewport_position);
@@ -1542,7 +1549,7 @@ bool EventHandler::update_hover_where_the_pointer_rests(HTML::HoverUpdatePoint h
     auto* target_layout_node = target.has_value() ? target->layout_node(read) : nullptr;
     if (node && target_layout_node && node.ptr() == document->hovered_node() && !Painting::is_navigable_container_viewport_paintable(*target_layout_node)) {
         Layout::Node* layout_node = nullptr;
-        if (parent_element_for_event_dispatch(*target_layout_node, node, layout_node))
+        if (parent_element_for_event_dispatch(*target_layout_node, node, layout_node, DisabledControlPolicy::Allow))
             update_cursor(read, target_layout_node, *node, target->chrome_widget, target->is_text_fragment);
         return false;
     }
@@ -1651,7 +1658,7 @@ void EventHandler::update_hover_after_scroll(HoverUpdateCause cause, CSSPixelPoi
     m_nested_navigable_under_pointer = hover_target ? hover_target_nested_navigable() : nullptr;
 
     Layout::Node* layout_node = nullptr;
-    if (!parent_element_for_event_dispatch(*target_layout_node, node, layout_node))
+    if (!parent_element_for_event_dispatch(*target_layout_node, node, layout_node, DisabledControlPolicy::Allow))
         return;
 
     update_cursor(read, target_layout_node, *node, chrome_widget, hit_text_fragment);
@@ -5176,7 +5183,7 @@ EventResult EventHandler::handle_pointer_event(Web::MouseEvent const& input, CSS
             return *result;
         }
     }
-    if (layout_node && hit_target && !parent_element_for_event_dispatch(*layout_node, hit_target, layout_node))
+    if (layout_node && hit_target && !parent_element_for_event_dispatch(*layout_node, hit_target, layout_node, DisabledControlPolicy::Reject))
         hit_target = nullptr;
     MouseEventCoordinates coordinates {
         .page_offset = compute_mouse_event_page_offset(viewport_position),
@@ -5384,7 +5391,7 @@ EventResult EventHandler::handle_pointer_event(Web::MouseEvent const& input, CSS
             mouse_target = mouse_hit.has_value() ? mouse_hit->dom_node() : nullptr;
             auto* mouse_layout = mouse_hit.has_value() ? mouse_hit->layout_node(read) : nullptr;
             if (mouse_target && mouse_layout) {
-                if (parent_element_for_event_dispatch(*mouse_layout, mouse_target, mouse_layout))
+                if (parent_element_for_event_dispatch(*mouse_layout, mouse_target, mouse_layout, DisabledControlPolicy::Reject))
                     mouse_coordinates = compute_mouse_event_coordinates(visual_viewport_position, viewport_position, *mouse_layout);
                 else
                     mouse_target = nullptr;

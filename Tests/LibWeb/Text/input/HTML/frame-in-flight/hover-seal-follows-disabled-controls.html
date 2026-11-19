@@ -9,9 +9,7 @@
 <div id="target"></div>
 <textarea id="control"></textarea>
 <script>
-    // A disabled control under the pointer takes no mouse event, which only the style engine tells, and has the lane
-    // follow the pointer wherever it goes: the seal follows the state of a control beside the element hovered, as it comes
-    // and goes, and as a control that holds it arrives and leaves.
+    // Check the hover seal as disabled controls are toggled, inserted, and removed.
     asyncTest(async done => {
         const run = async name => {
             println(`${name}: ${await hoverSeal(50, 50)}`);

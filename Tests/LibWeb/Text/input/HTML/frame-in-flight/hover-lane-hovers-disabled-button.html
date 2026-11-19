@@ -1,0 +1,37 @@
+<!doctype html>
+<script src="../../include.js"></script>
+<script src="frame-in-flight.js"></script>
+<style>
+    body {
+        margin: 0;
+    }
+    #outside,
+    button {
+        display: block;
+        width: 100px;
+        height: 100px;
+    }
+    button:hover {
+        width: 150px;
+    }
+</style>
+<div id="outside"></div>
+<button id="control" disabled><span id="label">Hover</span></button>
+<script>
+    asyncTest(async done => {
+        internals.mouseMove(50, 50);
+        await nextFrame();
+        const width = await whileLaneHovers(frameTime => {
+            internals.injectHoverPointer(50, 150, frameTime + 16);
+            return internals.presentedBorderBox(control)?.width;
+        });
+        println(`The render clock applied :hover to the disabled button: ${width === 150}`);
+
+        control.addEventListener("mouseenter", () =>
+            println(`Mouse entered the disabled button: ${control.matches(":hover")}`)
+        );
+        const rect = label.getBoundingClientRect();
+        internals.mouseMove(rect.x + rect.width / 2, rect.y + rect.height / 2);
+        done();
+    });
+</script>
