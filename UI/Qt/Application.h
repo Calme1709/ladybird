@@ -324,6 +324,7 @@ private:
     void on_recently_closed_entries_changed() const;
     void did_clear_history_since(UnixDateTime);
     void create_session_store(ByteString const& data_directory, bool persists_sessions);
+    void start_session_store();
     void create_history_store(ByteString const& data_directory, bool uses_sql_database);
     void quit_for_signal();
 

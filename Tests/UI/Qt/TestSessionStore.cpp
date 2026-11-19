@@ -1337,6 +1337,29 @@ TEST_CASE(clearing_persisted_history_retries_when_deletion_fails)
     EXPECT(!reopened_store->has_closed_units());
 }
 
+TEST_CASE(quitting_before_recovery_preserves_the_saved_session)
+{
+    QTemporaryDir directory;
+    VERIFY(directory.isValid());
+    auto path = ByteString { directory.path().toUtf8().constData() };
+
+    auto store = SessionStore::create_deferred(path);
+    TRY_OR_FAIL(store->start(SessionLaunchPolicy::None));
+    auto window = TRY_OR_FAIL(store->window_opened());
+    (void)open_tab(*store, window, "https://saved.example/"sv);
+    quit_cleanly(*store, { window }, SessionStore::AfterExit::Restart);
+
+    store = SessionStore::create_deferred(path);
+    EXPECT(store->has_deferred_recovery());
+    quit_cleanly(*store, {}, SessionStore::AfterExit::KeepPinnedTabs);
+
+    store = SessionStore::create_deferred(path);
+    TRY_OR_FAIL(store->start(SessionLaunchPolicy::PinnedOnly));
+    EXPECT(!store->has_deferred_recovery());
+    EXPECT(store->follows_restart());
+    EXPECT_EQ(store->take_launch_plan().size(), 1uz);
+}
+
 TEST_CASE(clearing_history_drops_pending_closes)
 {
     auto database = create_session_database();

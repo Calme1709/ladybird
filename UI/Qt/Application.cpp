@@ -1459,22 +1459,10 @@ SessionLaunchPolicy Application::launch_restore_policy() const
 
 void Application::create_session_store(ByteString const& data_directory, bool persists_sessions)
 {
-    auto session_store = [&]() -> ErrorOr<NonnullOwnPtr<SessionStore>> {
-        if (!persists_sessions)
-            return SessionStore::create();
+    m_session_store = persists_sessions ? SessionStore::create_deferred(data_directory) : SessionStore::create();
 
-        // Fall back without modifying the existing Sessions database.
-        auto session_database = TRY(Database::Database::create(data_directory, "Sessions"sv, { .foreign_keys = Database::Database::ForeignKeys::Yes }));
-        if (TRY(SessionStore::migrate_schema(session_database)) != Database::MigrationOutcome::Success)
-            return Error::from_string_literal("Sessions database was created by a newer Ladybird version");
-        return SessionStore::create(session_database, launch_restore_policy());
-    }();
-    if (session_store.is_error()) {
-        dbgln("Sessions will not be persisted this session: {}", session_store.error());
-        m_session_store = SessionStore::create();
-    } else {
-        m_session_store = session_store.release_value();
-    }
+    if (persists_sessions)
+        start_session_store();
 
     m_session_store->on_closed_units_changed = [this] {
         on_recently_closed_entries_changed();
@@ -1492,6 +1480,14 @@ void Application::create_session_store(ByteString const& data_directory, bool pe
         }
     }
 #endif
+}
+
+void Application::start_session_store()
+{
+    if (auto result = m_session_store->start(launch_restore_policy()); result.is_error()) {
+        dbgln("Sessions will not be persisted this session: {}", result.error());
+        m_session_store = SessionStore::create();
+    }
 }
 
 void Application::create_history_store(ByteString const& data_directory, bool uses_sql_database)

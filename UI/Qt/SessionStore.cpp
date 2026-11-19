@@ -364,12 +364,6 @@ ErrorOr<NonnullOwnPtr<SessionStore>> SessionStore::create(Database::Database& da
     auto persisted_storage = TRY(PersistedStorage::create(database));
     auto store = adopt_own(*new SessionStore(move(persisted_storage)));
     TRY(store->run_startup_recovery(UnixDateTime::now(), policy));
-
-    store->m_flush_timer = Core::Timer::create_repeating(AK::Duration::from_milliseconds(FLUSH_TIMER_INTERVAL_MILLISECONDS), [store = store.ptr()]() {
-        store->flush_dirty_state();
-    });
-    store->m_flush_timer->start();
-
     return store;
 }
 
@@ -381,6 +375,23 @@ NonnullOwnPtr<SessionStore> SessionStore::create()
 SessionStore::SessionStore(Optional<PersistedStorage> persisted_storage)
     : m_persisted_storage(move(persisted_storage))
 {
+}
+
+NonnullOwnPtr<SessionStore> SessionStore::create_deferred(ByteString data_directory)
+{
+    auto store = create();
+    store->m_deferred_data_directory = move(data_directory);
+    return store;
+}
+
+ErrorOr<void> SessionStore::start(SessionLaunchPolicy policy)
+{
+    auto data_directory = m_deferred_data_directory.release_value();
+    auto database = TRY(Database::Database::create(data_directory, "Sessions"sv, { .foreign_keys = Database::Database::ForeignKeys::Yes }));
+    if (TRY(migrate_schema(database)) != Database::MigrationOutcome::Success)
+        return Error::from_string_literal("Sessions database was created by a newer Ladybird version");
+    m_persisted_storage = TRY(PersistedStorage::create(database));
+    return run_startup_recovery(UnixDateTime::now(), policy);
 }
 
 SessionStore::~SessionStore()
@@ -1598,6 +1609,11 @@ ErrorOr<void> SessionStore::run_startup_recovery(UnixDateTime recovered_at, Sess
     }
 
     m_transient_storage.set_closed_units(TRY(m_persisted_storage->load_closed_units()));
+
+    m_flush_timer = Core::Timer::create_repeating(AK::Duration::from_milliseconds(FLUSH_TIMER_INTERVAL_MILLISECONDS), [this] {
+        flush_dirty_state();
+    });
+    m_flush_timer->start();
     return {};
 }
 
@@ -1717,6 +1733,7 @@ ErrorOr<void> SessionStore::drain_window_metadata()
 
 ErrorOr<SessionWindowId> SessionStore::window_opened()
 {
+    VERIFY(!has_deferred_recovery());
     auto window_id = TRY(m_session_id_allocator.allocate());
     if (m_persisted_storage.has_value()) {
         TRY(m_persisted_storage->insert_open_window(window_id));

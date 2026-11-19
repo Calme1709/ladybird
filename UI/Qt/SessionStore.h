@@ -153,6 +153,11 @@ public:
     static ErrorOr<NonnullOwnPtr<SessionStore>> create(Database::Database&, SessionLaunchPolicy = SessionLaunchPolicy::None);
     static NonnullOwnPtr<SessionStore> create();
 
+    // A deferred store opens the database on demand. Start recovery before opening regular windows.
+    static NonnullOwnPtr<SessionStore> create_deferred(ByteString data_directory);
+    bool has_deferred_recovery() const { return m_deferred_data_directory.has_value(); }
+    ErrorOr<void> start(SessionLaunchPolicy);
+
     ~SessionStore();
 
     ErrorOr<SessionWindowId> window_opened();
@@ -564,6 +569,7 @@ private:
     static bool is_tab_worth_keeping(URL::URL const&);
     static u32 max_closed_units(UnitKind);
 
+    Optional<ByteString> m_deferred_data_directory;
     Optional<PersistedStorage> m_persisted_storage;
     TransientStorage m_transient_storage;
     RefPtr<Core::Timer> m_flush_timer;
