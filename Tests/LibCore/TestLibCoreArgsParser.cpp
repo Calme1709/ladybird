@@ -112,6 +112,28 @@ TEST_CASE(bool_option)
     EXPECT_EQ(force, true);
 }
 
+TEST_CASE(long_option_observer_receives_the_matched_tokens)
+{
+    constexpr auto value_option = "--value"sv;
+    ByteString const first_flag { "--force"sv };
+    ByteString const second_flag { "--force"sv };
+    Vector<StringView> arguments { "app"sv, "first"sv, value_option, "--force"sv, first_flag, "second"sv, second_flag, "--"sv, "--force"sv };
+
+    Core::ArgsParser parser;
+    ByteString option_value;
+    bool force = false;
+    Vector<StringView> positionals;
+    parser.add_option(option_value, "value", "value", 0, "VALUE");
+    parser.add_option(force, "force", "force");
+    parser.add_positional_argument(positionals, "positionals", "positional", Core::ArgsParser::Required::No);
+
+    Vector<char const*> matched_tokens;
+    EXPECT(parser.parse(arguments, Core::ArgsParser::FailureBehavior::Ignore, [&](StringView token) {
+        matched_tokens.append(token.characters_without_null_termination());
+    }));
+    EXPECT_EQ(matched_tokens, (Vector<char const*> { value_option.characters_without_null_termination(), first_flag.characters(), second_flag.characters() }));
+}
+
 TEST_CASE(string_option)
 {
     ByteString string_option;

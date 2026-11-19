@@ -36,7 +36,7 @@ ArgsParser::ArgsParser()
     add_option(m_perform_autocomplete, "Perform autocompletion", "complete", 0, OptionHideMode::CommandLineAndMarkdown);
 }
 
-bool ArgsParser::parse(Span<StringView> arguments, FailureBehavior failure_behavior)
+bool ArgsParser::parse(Span<StringView> arguments, FailureBehavior failure_behavior, Function<void(StringView)> const& long_option_observer)
 {
     auto fail_impl = [this, failure_behavior](StringView name) {
         if (failure_behavior == FailureBehavior::PrintUsage || failure_behavior == FailureBehavior::PrintUsageAndExit)
@@ -127,6 +127,8 @@ bool ArgsParser::parse(Span<StringView> arguments, FailureBehavior failure_behav
             fail();
             return false;
         }
+        if (c == 0 && long_option_observer)
+            long_option_observer(arguments[option_index - result.consumed_args]);
     }
 
     // We're done processing options.

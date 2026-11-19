@@ -71,7 +71,8 @@ public:
         Function<ErrorOr<bool>(StringView)> accept_value;
     };
 
-    bool parse(Span<StringView> arguments, FailureBehavior failure_behavior = FailureBehavior::PrintUsageAndExit);
+    // The observer receives the full argument token for each successfully parsed long option.
+    bool parse(Span<StringView> arguments, FailureBehavior failure_behavior = FailureBehavior::PrintUsageAndExit, Function<void(StringView)> const& long_option_observer = {});
     bool parse(Main::Arguments const& arguments, FailureBehavior failure_behavior = FailureBehavior::PrintUsageAndExit)
     {
         return parse(arguments.strings, failure_behavior);
