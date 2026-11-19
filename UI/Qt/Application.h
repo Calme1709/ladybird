@@ -117,7 +117,7 @@ public:
     virtual Function<void()> fetch_remote_suggestions(WebView::SearchEngine const&, String const& query, WebView::IsPrivate, Function<void(RemoteResponse)>) override;
 
     static WebUIPages& web_ui_pages() { return *s_the->m_web_ui_pages; }
-    String const& command_line() const { return m_command_line; }
+    String command_line() const;
 
     virtual ~Application() override;
 
@@ -157,6 +157,7 @@ public:
         Optional<Core::Process> hub;
         bool relaunched_by_updater { false };
 
+        void remove_arguments(Vector<size_t> const& indices);
         ErrorOr<void> run();
     };
     void offer_restart_after_update();
@@ -330,7 +331,7 @@ private:
 
     static Application* s_the;
 
-    String m_command_line;
+    ByteString m_program_name;
     Optional<u16> m_devtools_port;
     bool m_gpu_painting_enabled { true };
     bool m_cpu_painting_bar_dismissed { false };

@@ -98,6 +98,7 @@ public:
     static Settings& settings() { return *the().m_settings; }
     static Profile const& profile() { return *the().m_profile; }
     BrowserProcess& browser_process() { return *m_browser_process; }
+    Vector<size_t> const& private_launch_argument_indices() const { return m_private_launch_argument_indices; }
     bool should_exit_after_profile_coordination() const { return m_should_exit_after_profile_coordination; }
     // Whether the process exits because a browser is running for the profile, but does not take what we were asked to
     // open.
@@ -752,6 +753,7 @@ private:
     OwnPtr<DevTools::FirefoxClient> m_devtools_client;
 
     mutable HashMap<u64, u64> m_navigation_listener_ids;
+    Vector<size_t> m_private_launch_argument_indices;
 };
 
 }

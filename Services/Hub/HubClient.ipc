@@ -158,6 +158,8 @@ struct Hub::InitialState {
     Vector<Hub::DownloadState> downloads;
     Vector<URL::URL> urls;
     Vector<ByteString> raw_urls;
+    // Private flags and positional URLs, indexed from the first argument after the executable.
+    Vector<size_t> private_launch_argument_indices;
     ByteString crash_report_directory;
     Optional<u16> devtools_port;
     ByteString profile_identifier;
@@ -400,4 +402,5 @@ endpoint HubClient
     view_crash_report_saved(u64 view_id) =|
     view_performance_stats(u64 view_id, WebView::TabPerformanceStats stats) =|
     view_show_private_session_reset_confirmation(u64 view_id) =|
+    app_open_new_private_window(Vector<URL::URL> urls) =|
 }

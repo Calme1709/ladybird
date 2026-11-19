@@ -92,6 +92,12 @@ if (LINUX AND TARGET Qt6::QOffscreenIntegrationPlugin)
     ladybird_import_qt_plugin(TestPrivateWindowClearData QOffscreenIntegrationPlugin)
     add_dependencies(TestPrivateWindowClearData ladybird)
     set_tests_properties(TestPrivateWindowClearData PROPERTIES TIMEOUT 60)
+
+    ladybird_test(TestPrivateWindowRestart.cpp UI/Qt LIBS ladybird_impl)
+    target_compile_definitions(TestPrivateWindowRestart PRIVATE TEST_LADYBIRD_PATH="$<TARGET_FILE:ladybird>")
+    ladybird_import_qt_plugin(TestPrivateWindowRestart QOffscreenIntegrationPlugin)
+    add_dependencies(TestPrivateWindowRestart ladybird)
+    set_tests_properties(TestPrivateWindowRestart PROPERTIES TIMEOUT 60)
 endif()
 
 if (APPLE)

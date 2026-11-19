@@ -766,6 +766,12 @@ void HubConnection::app_open_new_window(Vector<URL::URL> urls)
         application.on_new_window(urls);
 }
 
+void HubConnection::app_open_new_private_window(Vector<URL::URL> urls)
+{
+    auto& application = Application::the();
+    application.new_window(urls, application.configuration_for_new_window(), BrowserWindow::IsPopupWindow::No, WebView::IsPrivate::Yes);
+}
+
 void HubConnection::view_show_private_session_reset_confirmation(u64 view_id)
 {
     if (auto* view = RemoteView::find(view_id); view && view->on_request_private_session_reset_confirmation)

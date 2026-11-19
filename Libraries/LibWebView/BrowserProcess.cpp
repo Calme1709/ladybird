@@ -395,6 +395,9 @@ static BrowserProcess::Handover hand_over(UIProcessClient& client, Vector<ByteSt
     case NewWindow::Yes:
         done = client.send_sync_until<Messages::UIProcessServer::CreateNewWindow>(deadline, raw_urls);
         break;
+    case NewWindow::Private:
+        done = client.send_sync_until<Messages::UIProcessServer::CreateNewPrivateWindow>(deadline, raw_urls);
+        break;
     case NewWindow::No:
         done = client.send_sync_until<Messages::UIProcessServer::CreateNewTab>(deadline, raw_urls);
         break;
@@ -499,6 +502,11 @@ void BrowserProcess::accept_transport(NonnullOwnPtr<IPC::Transport> transport)
         if (this->on_new_window)
             this->on_new_window(raw_urls);
     };
+
+    client->on_new_private_window = [this](auto const& urls) {
+        if (on_new_private_window)
+            on_new_private_window(urls);
+    };
 }
 
 BrowserProcess::~BrowserProcess()
@@ -578,6 +586,12 @@ void UIProcessConnectionFromClient::create_new_window(Vector<ByteString> urls)
 {
     if (on_new_window)
         on_new_window(sanitize_urls(urls));
+}
+
+void UIProcessConnectionFromClient::create_new_private_window(Vector<ByteString> urls)
+{
+    if (on_new_private_window)
+        on_new_private_window(sanitize_urls(urls));
 }
 
 }

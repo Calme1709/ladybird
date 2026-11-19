@@ -110,7 +110,9 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
         };
 
         auto configuration = app->configuration_for_new_window();
-        if (auto* restored_window = app->restore_previous_session(configuration)) {
+        if (browser_options.new_window == WebView::NewWindow::Private) {
+            app->new_window(browser_options.urls, configuration, Ladybird::BrowserWindow::IsPopupWindow::No, WebView::IsPrivate::Yes);
+        } else if (auto* restored_window = app->restore_previous_session(configuration)) {
             // A whole restored session replaces the usual startup tab, so only the URLs the user passed open with it.
             // With only pinned tabs restored, the usual startup tabs open after them. A restart passes on the URLs
             // that the browser was started with, which are among the restored tabs already.

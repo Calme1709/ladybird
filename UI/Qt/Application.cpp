@@ -6,6 +6,7 @@
 
 #include <AK/GenericShorthands.h>
 #include <AK/Hex.h>
+#include <AK/StringBuilder.h>
 #include <LibCore/ArgsParser.h>
 #include <LibCore/BrowserVersion.h>
 #include <LibCore/Environment.h>
@@ -699,12 +700,11 @@ Application* Application::s_the = nullptr;
 ErrorOr<NonnullOwnPtr<Application>> Application::create(Main::Arguments const& arguments)
 {
     auto application = adopt_own(*new Application);
-    application->m_command_line = MUST(String::join(' ', arguments.strings));
-    if (auto executable = Core::System::current_executable_path(); !executable.is_error()) {
+    application->m_program_name = arguments.strings[0];
+    if (auto executable = Core::System::current_executable_path(); !executable.is_error())
         application->m_restart_command.executable = executable.release_value();
-        for (auto argument : arguments.strings.slice(1))
-            application->m_restart_command.arguments.append(argument);
-    }
+    for (auto argument : arguments.strings.slice(1))
+        application->m_restart_command.arguments.append(argument);
 
 #ifdef LADYBIRD_HUB_IN_OWN_PROCESS
     WebView::platform_init();
@@ -715,6 +715,7 @@ ErrorOr<NonnullOwnPtr<Application>> Application::create(Main::Arguments const& a
     TRY(application->connect_to_hub(arguments));
 #else
     application->m_hub = TRY(Hub::Application::create(arguments, static_cast<Hub::ApplicationHost*>(application.ptr())));
+    application->m_restart_command.remove_arguments(application->m_hub->private_launch_argument_indices());
     s_browser_has_started = true;
 
     // Headless mode has no UI to connect to the Hub.
@@ -942,6 +943,10 @@ ErrorOr<void> Application::connect_to_hub(Main::Arguments const& arguments)
     m_hub_connection->did_initialize();
 
     m_settings = make<WebView::Settings>(WebView::Settings::create_from_json(TRY(JsonValue::from_string(state.settings_json))));
+    if (!state.private_launch_argument_indices.is_empty()) {
+        m_browser_options.new_window = WebView::NewWindow::Private;
+        m_restart_command.remove_arguments(state.private_launch_argument_indices);
+    }
     create_session_store(state.data_directory, state.persists_sessions);
     create_history_store(state.data_directory, state.uses_sql_database);
     m_bookmark_store = make<BookmarkStore>(BookmarkStore::create(LexicalPath::join(state.config_directory, "Bookmarks.json"sv).string(), *m_favicon_store));
@@ -1400,6 +1405,12 @@ Optional<String> Application::system_font_family() const
 
 BrowserWindow& Application::new_window(Vector<URL::URL> const& initial_urls, WindowConfiguration const& configuration, BrowserWindow::IsPopupWindow is_popup_window, WebView::IsPrivate is_private, Optional<u64> hub_view_id, ShowWindow show_window, Optional<Web::HTML::PreparedNavigationDescriptor> initial_navigation)
 {
+    bool restore_deferred_session = is_private == WebView::IsPrivate::No && m_session_store->has_deferred_recovery();
+    if (restore_deferred_session) {
+        start_session_store();
+        restore_previous_session(configuration);
+    }
+
     auto* window = new BrowserWindow(initial_urls, is_popup_window, is_private, hub_view_id);
 
     auto should_focus_location_editor = initial_urls.size() == 1 && initial_urls.first() == Application::settings().new_tab_page_url();
@@ -1425,6 +1436,10 @@ BrowserWindow& Application::new_window(Vector<URL::URL> const& initial_urls, Win
             if (auto* tab = window->current_tab())
                 tab->focus_location_editor();
         });
+    }
+    if (restore_deferred_session) {
+        update_reopen_recently_closed_actions();
+        offer_to_restore_unexpectedly_closed_tabs(*window);
     }
     return *window;
 }
@@ -1461,7 +1476,8 @@ void Application::create_session_store(ByteString const& data_directory, bool pe
 {
     m_session_store = persists_sessions ? SessionStore::create_deferred(data_directory) : SessionStore::create();
 
-    if (persists_sessions)
+    // NB: Starting session recovery can change the saved regular session even before any windows are restored.
+    if (persists_sessions && browser_options().new_window != WebView::NewWindow::Private)
         start_session_store();
 
     m_session_store->on_closed_units_changed = [this] {
@@ -1469,10 +1485,9 @@ void Application::create_session_store(ByteString const& data_directory, bool pe
     };
 
 #if !defined(AK_OS_WINDOWS) && defined(LADYBIRD_HUB_IN_OWN_PROCESS)
-    // A run stopped by SIGINT or SIGTERM ends like a quit, rather than like a crash: It saves the session, leaves its
-    // windows for the next launch to recover, and records a clean exit. The Hub hears of a signal sent to it alone, and
-    // passes it on.
-    if (m_session_store->is_persistent()) {
+    // Route SIGINT and SIGTERM through normal shutdown even when regular session recovery is deferred.
+    // The Hub passes on signals sent to it alone.
+    if (m_session_store->is_persistent() || m_session_store->has_deferred_recovery()) {
         for (auto signal_number : { SIGINT, SIGTERM }) {
             m_session_signal_handlers.append(Core::EventLoop::register_signal(signal_number, [this](int) {
                 quit_for_signal();
@@ -2572,6 +2587,22 @@ Optional<Application::RestartCommand> Application::take_restart_command()
     auto command = move(m_restart_command);
     command.relaunched_by_updater = m_restart == Restart::ByUpdater;
     return command;
+}
+
+String Application::command_line() const
+{
+    StringBuilder builder;
+    builder.append(m_program_name);
+    for (auto const& argument : m_restart_command.arguments)
+        builder.appendff(" {}", argument);
+    return MUST(builder.to_string());
+}
+
+void Application::RestartCommand::remove_arguments(Vector<size_t> const& indices)
+{
+    // NB: The Hub may also have received URLs from launch events absent from the UI's arguments.
+    auto first_hub_only_argument = indices.find_if([&](size_t index) { return index >= arguments.size(); });
+    arguments.remove_all(indices.begin(), first_hub_only_argument);
 }
 
 // A restarted browser must start only once the Hub of this one is gone, as it would otherwise hand itself over to that

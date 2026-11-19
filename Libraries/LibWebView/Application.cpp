@@ -7,6 +7,7 @@
 #include <AK/AnyOf.h>
 #include <AK/Checked.h>
 #include <AK/Debug.h>
+#include <AK/HashTable.h>
 #include <AK/JsonArray.h>
 #include <AK/JsonObject.h>
 #include <AK/Math.h>
@@ -328,6 +329,7 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
     Optional<u32> screenshot_delay;
     Optional<StringView> screenshot_path;
     bool new_window = false;
+    bool new_private_window = false;
     Optional<i64> replace_browser_from_before;
     StringView stats_log_directory;
     Optional<StringView> profile_name;
@@ -432,6 +434,7 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
         .hide_mode = Core::ArgsParser::OptionHideMode::CommandLineAndMarkdown,
     });
     args_parser.add_option(new_window, "Force opening in a new window", "new-window", 'n');
+    args_parser.add_option(new_private_window, "Open a new private window", "new-private-window");
 #if !defined(AK_OS_WINDOWS)
     // FIXME: Offer this on Windows as well, once an unresponsive browser can be ended there.
     args_parser.add_option(replace_browser_from_before, "End a browser that is running for the profile if it is unresponsive and started before this time, and start in its place", "replace-unresponsive-browser-from-before", 0, "unix-time-in-milliseconds");
@@ -546,7 +549,25 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
     });
 
     create_platform_arguments(args_parser);
-    args_parser.parse(m_arguments);
+    HashTable<void const*> private_launch_arguments;
+    args_parser.parse(m_arguments.strings, Core::ArgsParser::FailureBehavior::PrintUsageAndExit, [&](StringView token) {
+        if (token == "--new-private-window"sv)
+            private_launch_arguments.set(token.characters_without_null_termination());
+    });
+
+    auto requested_window = new_window ? NewWindow::Yes : NewWindow::No;
+    if (new_private_window && !headless_mode.has_value()) {
+        requested_window = NewWindow::Private;
+        // NB: Parsing moves positional arguments to the end. Match pointers in the original argv so an identical
+        // option value is kept and the resulting indices stay in their original order.
+        for (auto url : m_arguments.strings.slice_from_end(raw_urls.size()))
+            private_launch_arguments.set(url.characters_without_null_termination());
+        for (size_t index = 1; index < m_arguments.strings.size(); ++index) {
+            if (private_launch_arguments.contains(m_arguments.argv[index]))
+                m_private_launch_argument_indices.append(index - 1);
+        }
+        VERIFY(m_private_launch_argument_indices.size() == private_launch_arguments.size());
+    }
 
     m_stats_log = TRY(Core::StatsLog::create(stats_log_directory, "Ladybird"sv));
 
@@ -582,7 +603,7 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
         .urls = {},
         .raw_urls = move(raw_urls),
         .headless_mode = headless_mode,
-        .new_window = new_window ? NewWindow::Yes : NewWindow::No,
+        .new_window = requested_window,
         .allow_popups = allow_popups ? AllowPopups::Yes : AllowPopups::No,
         .disable_scripting = disable_scripting ? DisableScripting::Yes : DisableScripting::No,
         .disable_sql_database = disable_sql_database ? DisableSQLDatabase::Yes : DisableSQLDatabase::No,
