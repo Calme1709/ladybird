@@ -463,6 +463,15 @@ OwnPtr<WebView::PictureInPictureWindow> Application::create_picture_in_picture_w
     return make<PictureInPictureWindowInUI>(view, owner_view.view_id(), video_size, WebView::PictureInPictureWindow::initial_size(video_size, screen_size));
 }
 
+void Application::show_private_session_reset_confirmation(WebView::WebContentPage& page)
+{
+    auto* ui = ConnectionFromUI::the();
+    if (!ui || !page.has_traversable() || !page.displays_tab())
+        return;
+    if (auto view = page.traversable().view(); view.has_value())
+        ui->async_view_show_private_session_reset_confirmation(view->view_id());
+}
+
 void Application::focus_page_from_notification(WebView::WebContentPage& page)
 {
     if (auto* ui = ConnectionFromUI::the())

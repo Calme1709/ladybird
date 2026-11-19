@@ -83,6 +83,7 @@ struct ApplicationPermissionManagerObserver;
 
 class WEBVIEW_API Application : public DevTools::DevToolsDelegate {
     AK_MAKE_NONCOPYABLE(Application);
+    friend class ClearBrowsingDataUI;
 
 public:
     AK_ALLOC_WITH_KMALLOC;
@@ -606,6 +607,8 @@ private:
     virtual void did_connect_devtools_client(DevTools::TabDescription const&) const override;
     virtual void did_disconnect_devtools_client(DevTools::TabDescription const&) const override;
     virtual void did_close_devtools_connection() override;
+
+    virtual void show_private_session_reset_confirmation(WebContentPage&) { }
 
     static Application* s_the;
 

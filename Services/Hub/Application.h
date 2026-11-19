@@ -113,6 +113,7 @@ private:
     virtual Web::CSS::PreferredColorScheme interface_color_scheme() const override;
     virtual Optional<String> system_font_family() const override;
     virtual void focus_page_from_notification(WebView::WebContentPage& page) override;
+    virtual void show_private_session_reset_confirmation(WebView::WebContentPage&) override;
     virtual void open_url_in_new_tab_from_notification(URL::URL const& url, Web::PageId originating_page, WebView::CanonicalTraversable* canonical_traversable, WebView::IsPrivate is_private) override;
     virtual bool supports_picture_in_picture() const override;
     virtual OwnPtr<WebView::PictureInPictureWindow> create_picture_in_picture_window(WebView::WebContentPage& requesting_page, WebView::CanonicalTraversable& canonical_traversable, Gfx::IntSize video_size) override;

@@ -3,7 +3,7 @@ import {
     formatBrowsingDataSize,
     requestBrowsingDataSizes,
 } from "../components/clear-browsing-data.js";
-import { registerDialogDeepLink } from "./dialog-deep-link.js";
+import { registerDialogDeepLink, syncDialogs } from "./dialog-deep-link.js";
 
 const browsingDataSettings = document.querySelector("#browsing-data-settings");
 const browsingDataTotalSize = document.querySelector("#browsing-data-total-size");
@@ -17,6 +17,7 @@ function loadSettings(settings) {
 
 const { dialog, open } = createClearBrowsingDataDialog(requestSizesAndUpdateTotal);
 
+let privateBrowsing = null;
 let latestSizeRequest;
 
 async function requestSizesAndUpdateTotal(since) {
@@ -38,26 +39,43 @@ registerDialogDeepLink({
     hash: "clearBrowsingData",
     tab: "privacy",
     dialog,
+    onBeforeOpen() {
+        if (privateBrowsing) {
+            history.replaceState(null, "", "#privacy");
+            ladybird.sendMessage("clearBrowsingData", {});
+        }
+        return privateBrowsing === false;
+    },
     onOpen: open,
 });
 
 browsingDataSettings.addEventListener("click", () => {
-    location.hash = "clearBrowsingData";
+    if (privateBrowsing) {
+        ladybird.sendMessage("clearBrowsingData", {});
+    } else {
+        location.hash = "clearBrowsingData";
+    }
 });
 
 globalPrivacyControlToggle.addEventListener("change", () => {
     ladybird.sendMessage("setGlobalPrivacyControl", globalPrivacyControlToggle.checked);
 });
 
-document.addEventListener("WebUILoaded", () => {
-    if (location.hash !== "#clearBrowsingData") {
-        refreshTotalBrowsingDataSize();
-    }
-});
-
 document.addEventListener("WebUIMessage", event => {
     if (event.detail.name === "loadSettings") {
         loadSettings(event.detail.data);
+    } else if (event.detail.name === "loadFeatures") {
+        privateBrowsing = event.detail.data.privateBrowsing;
+        if (privateBrowsing) {
+            document.querySelector('label[for="browsing-data-settings"]').textContent = "Clear private browsing data";
+            browsingDataTotalSize.classList.add("hidden");
+        }
+        browsingDataSettings.disabled = false;
+        if (location.hash === "#clearBrowsingData") {
+            syncDialogs();
+        } else if (privateBrowsing === false) {
+            refreshTotalBrowsingDataSize();
+        }
     } else if (event.detail.name === "clearedBrowsingData") {
         refreshTotalBrowsingDataSize();
     }

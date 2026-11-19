@@ -553,7 +553,7 @@
 
             clearHistoryButton.addEventListener("click", () => {
                 if (privateBrowsing) {
-                    location.href = "about:settings#clearBrowsingData";
+                    ladybird.sendMessage("clearBrowsingData", {});
                 } else {
                     openClearBrowsingDataDialog();
                 }

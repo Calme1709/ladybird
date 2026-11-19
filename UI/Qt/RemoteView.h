@@ -400,6 +400,7 @@ public:
     decltype(Hub::View::on_exit_fullscreen_window) on_exit_fullscreen_window;
     decltype(Hub::View::on_request_color_picker) on_request_color_picker;
     decltype(Hub::View::on_request_date_picker) on_request_date_picker;
+    Function<void()> on_request_private_session_reset_confirmation;
     decltype(Hub::View::on_request_permission) on_request_permission;
     decltype(Hub::View::on_cancel_permission_prompt) on_cancel_permission_prompt;
     decltype(Hub::View::on_tab_indicator_change) on_tab_indicator_change;

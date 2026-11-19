@@ -46,9 +46,10 @@ ApplicationWebUI::~ApplicationWebUI()
 
 void ApplicationWebUI::register_interfaces()
 {
-    if (host() == "history"sv && client().is_private() == IsPrivate::No) {
+    if (host() == "history"sv) {
         register_shared_interfaces(ClearBrowsingDataUI::interfaces());
-        register_request_handler("estimateBrowsingDataSizes"sv, ClearBrowsingDataUI::estimate_browsing_data_sizes);
+        if (client().is_private() == IsPrivate::No)
+            register_request_handler("estimateBrowsingDataSizes"sv, ClearBrowsingDataUI::estimate_browsing_data_sizes);
     }
 
     m_id = s_next_id++;

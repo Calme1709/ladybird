@@ -1,13 +1,17 @@
 const REGISTRY = new Map();
 let globalListenersInstalled = false;
+let initialHash;
 
-function syncDialogs() {
+export function syncDialogs() {
     if (!window.ladybird) {
         return;
     }
 
     const activeHash = location.hash.slice(1);
     const active = REGISTRY.get(activeHash);
+    if (activeHash !== initialHash) {
+        initialHash = undefined;
+    }
 
     for (const { dialog } of REGISTRY.values()) {
         if (dialog !== active?.dialog && dialog.open) {
@@ -15,16 +19,25 @@ function syncDialogs() {
         }
     }
 
-    if (active) {
-        active.onOpen?.();
-        if (!active.dialog.open) {
-            active.dialog.showModal();
-        }
+    if (!active || active.onBeforeOpen?.() === false) {
+        return;
+    }
+
+    if (activeHash === initialHash) {
+        initialHash = undefined;
+        history.replaceState(null, "", `#${active.tab}`);
+        location.hash = activeHash;
+        return;
+    }
+
+    active.onOpen?.();
+    if (!active.dialog.open) {
+        active.dialog.showModal();
     }
 }
 
-export function registerDialogDeepLink({ hash, tab, dialog, onOpen }) {
-    REGISTRY.set(hash, { tab, dialog, onOpen });
+export function registerDialogDeepLink({ hash, tab, dialog, onBeforeOpen, onOpen }) {
+    REGISTRY.set(hash, { tab, dialog, onBeforeOpen, onOpen });
 
     dialog.addEventListener("close", () => {
         if (location.hash.slice(1) === hash) {
@@ -40,14 +53,8 @@ export function registerDialogDeepLink({ hash, tab, dialog, onOpen }) {
     window.addEventListener("hashchange", syncDialogs);
 
     document.addEventListener("WebUILoaded", () => {
-        const hash = location.hash.slice(1);
-        const config = REGISTRY.get(hash);
-        if (!config) {
-            return;
-        }
-
-        history.replaceState(null, "", `#${config.tab}`);
-        location.hash = hash;
+        initialHash = location.hash.slice(1);
+        syncDialogs();
     });
 }
 

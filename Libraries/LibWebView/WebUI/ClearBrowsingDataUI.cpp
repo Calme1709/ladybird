@@ -7,6 +7,7 @@
 #include <AK/JsonObject.h>
 #include <LibCore/Promise.h>
 #include <LibWebView/Application.h>
+#include <LibWebView/WebContentClient.h>
 #include <LibWebView/WebUI/ClearBrowsingDataUI.h>
 
 namespace WebView {
@@ -46,10 +47,16 @@ NonnullRefPtr<Core::Promise<JsonValue>> ClearBrowsingDataUI::estimate_browsing_d
         });
 }
 
-void ClearBrowsingDataUI::clear_browsing_data(WebUI& web_ui, WebContentClient&, JsonValue const& options)
+void ClearBrowsingDataUI::clear_browsing_data(WebUI& web_ui, WebContentClient& client, JsonValue const& options)
 {
     if (!options.is_object())
         return;
+
+    if (client.is_private() == IsPrivate::Yes) {
+        if (auto* page = client.page(web_ui.page_id()))
+            Application::the().show_private_session_reset_confirmation(*page);
+        return;
+    }
 
     Application::ClearBrowsingDataOptions clear_browsing_data_options;
 

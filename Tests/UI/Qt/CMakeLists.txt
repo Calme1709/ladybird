@@ -87,6 +87,13 @@ if (TARGET Qt6::QOffscreenIntegrationPlugin)
     endif()
 endif()
 
+if (LINUX AND TARGET Qt6::QOffscreenIntegrationPlugin)
+    ladybird_test(TestPrivateWindowClearData.cpp UI/Qt LIBS ladybird_impl)
+    ladybird_import_qt_plugin(TestPrivateWindowClearData QOffscreenIntegrationPlugin)
+    add_dependencies(TestPrivateWindowClearData ladybird)
+    set_tests_properties(TestPrivateWindowClearData PROPERTIES TIMEOUT 60)
+endif()
+
 if (APPLE)
     add_library(NativeTextEditingTestMain OBJECT
         NativeTextEditingTestMain.mm

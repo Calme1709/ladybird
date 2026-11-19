@@ -188,7 +188,8 @@ void SettingsUI::register_interfaces()
     });
 
     register_shared_interfaces(ClearBrowsingDataUI::interfaces());
-    register_request_handler("estimateBrowsingDataSizes"sv, ClearBrowsingDataUI::estimate_browsing_data_sizes);
+    if (client().is_private() == IsPrivate::No)
+        register_request_handler("estimateBrowsingDataSizes"sv, ClearBrowsingDataUI::estimate_browsing_data_sizes);
     register_interface("setGlobalPrivacyControl"sv, [this](auto const& data) {
         set_global_privacy_control(data);
     });
@@ -229,6 +230,7 @@ void SettingsUI::load_features()
     features.set("primaryPaste"_string, application.supports_clipboard_type(Application::ClipboardType::Selection));
     features.set("verticalTabs"_string, application.supports_vertical_tabs());
     features.set("geolocation"_string, Core::GeolocationProvider::is_available());
+    features.set("privateBrowsing"_string, client().is_private() == IsPrivate::Yes);
 
     async_send_message("loadFeatures"sv, move(features));
 }

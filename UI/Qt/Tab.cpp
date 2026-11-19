@@ -361,6 +361,7 @@ void Tab::initialize(Optional<u64> hub_view_id)
     };
 
     view().on_top_level_navigation_commit = [this] {
+        m_private_session_confirmation_pending = false;
         m_is_waiting_for_response = false;
         m_suppress_javascript_dialogs_until_navigation = false;
         m_javascript_dialogs_shown_by_document = 0;
@@ -500,6 +501,7 @@ void Tab::initialize(Optional<u64> hub_view_id)
     };
 
     view().on_web_content_crashed = [this](auto) {
+        m_private_session_confirmation_pending = false;
         m_suppress_javascript_dialogs_until_navigation = false;
         m_javascript_dialog->reset();
 
@@ -586,9 +588,14 @@ void Tab::initialize(Optional<u64> hub_view_id)
         return popover;
     };
 
+    view().on_request_private_session_reset_confirmation = [this] {
+        m_private_session_confirmation_pending = true;
+        update_pending_prompts();
+    };
+
     view().on_request_permission = [this](WebView::PermissionPromptRequest const& request, WebView::PermissionPromptCallback on_outcome) {
         // A tab opened in the background, or in a window that was never active, has had nothing hold its prompts yet.
-        update_permission_prompts();
+        update_pending_prompts();
         m_permission_prompts.enqueue(request, AK::move(on_outcome));
     };
 
@@ -1299,23 +1306,26 @@ void Tab::hideEvent(QHideEvent* event)
         return;
 
     hide_hover_label();
-    update_permission_prompts();
+    update_pending_prompts();
 }
 
 void Tab::showEvent(QShowEvent* event)
 {
     QWidget::showEvent(event);
-    update_permission_prompts();
+    update_pending_prompts();
 }
 
-// A tab's permission prompt waits, unanswered, while another tab is shown or another window is active. A popup that
+// A tab's prompts wait while another tab is shown or another window is active. A popup that
 // comes up over an inactive window is closed by the next click or activation anywhere else.
-void Tab::update_permission_prompts()
+void Tab::update_pending_prompts()
 {
-    if (isVisible() && isActiveWindow())
+    if (isVisible() && isActiveWindow()) {
         m_permission_prompts.resume();
-    else
+        if (exchange(m_private_session_confirmation_pending, false))
+            show_private_session_popover();
+    } else {
         m_permission_prompts.suspend();
+    }
 }
 
 void Tab::update_hover_label()
@@ -1416,7 +1426,7 @@ bool Tab::event(QEvent* event)
     if ((event->type() == QEvent::WindowActivate || event->type() == QEvent::WindowDeactivate) && is_loaded()) {
         // An inactive window's toolbar icons drop to the muted color.
         recreate_location_edit_icons();
-        update_permission_prompts();
+        update_pending_prompts();
     }
 
     if (event->type() == QEvent::PaletteChange && is_loaded()) {

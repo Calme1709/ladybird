@@ -212,7 +212,7 @@ private:
     void leave_report_review();
     void position_private_session_popover();
     QWidget& site_settings_anchor() const;
-    void update_permission_prompts();
+    void update_pending_prompts();
     void hide_hover_label();
     bool hover_text_belongs_on_right(QPoint pointer) const;
     QImage render_hover_text(QString const&) const;
@@ -222,6 +222,7 @@ private:
     void set_screen_wake_lock_state(Web::ScreenWakeLockState);
 
     QPointer<MessagePopover> m_private_session_popover;
+    bool m_private_session_confirmation_pending { false };
     QPointer<SiteSettingsPopover> m_site_settings_popover;
     // The site the open popover shows, which its changes apply to whatever the tab shows by then.
     Optional<URL::Origin> m_site_settings_popover_origin;
