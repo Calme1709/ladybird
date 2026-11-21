@@ -242,7 +242,7 @@
                 </svg>
                 <input id="history-search" type="search" placeholder="Search history" spellcheck="false" autofocus />
             </label>
-            <button id="clear-history" class="secondary-button">Clear history…</button>
+            <button id="clear-history" class="secondary-button" disabled>Clear history…</button>
         </div>
 
         <div id="history-status" class="history-status">Loading history…</div>
@@ -253,6 +253,8 @@
         </div>
 
         <script type="module">
+            import { createClearBrowsingDataDialog } from "resource://ladybird/about-pages/components/clear-browsing-data.js";
+
             const PAGE_SIZE = 50;
             const SEARCH_DEBOUNCE_DELAY = 200;
 
@@ -262,6 +264,9 @@
             const historyGroups = document.querySelector("#history-groups");
             const historyActions = document.querySelector("#history-actions");
             const loadMoreButton = document.querySelector("#load-more");
+            const clearHistoryButton = document.querySelector("#clear-history");
+            const { open: openClearBrowsingDataDialog } = createClearBrowsingDataDialog();
+            let privateBrowsing;
 
             const timeFormatter = new Intl.DateTimeFormat([], { timeStyle: "short" });
             const todayFormatter = new Intl.DateTimeFormat([], { weekday: "long", month: "long", day: "numeric" });
@@ -546,9 +551,12 @@
                 searchTimer = setTimeout(() => refreshHistory(), SEARCH_DEBOUNCE_DELAY);
             }
 
-            // Clearing history is one of the choices in Settings' dialog for clearing browsing data.
-            document.querySelector("#clear-history").addEventListener("click", () => {
-                location.href = "about:settings#clearBrowsingData";
+            clearHistoryButton.addEventListener("click", () => {
+                if (privateBrowsing) {
+                    location.href = "about:settings#clearBrowsingData";
+                } else {
+                    openClearBrowsingDataDialog();
+                }
             });
 
             searchInput.addEventListener("input", scheduleSearch);
@@ -568,6 +576,12 @@
                 requestHistory(0);
             });
 
+            document.addEventListener("WebUIMessage", event => {
+                if (event.detail.name === "clearedBrowsingData") {
+                    refreshHistory();
+                }
+            });
+
             function handleHistoryResponse(data, requestId) {
                 if (requestId !== latestRequestId) return;
 
@@ -579,6 +593,8 @@
                     return;
                 }
 
+                privateBrowsing = data.privateBrowsing;
+                clearHistoryButton.disabled = false;
                 state.hasMore = Boolean(data.hasMore);
                 state.query = data.query || "";
 

@@ -13,8 +13,7 @@
 
 namespace WebView {
 
-// A page that the application answers, rather than anything in this process. What goes between the page and the
-// application passes through here without being looked at.
+// A page that forwards unhandled messages and requests to the application.
 class WEBVIEW_API ApplicationWebUI final : public WebUI {
     WEB_UI(ApplicationWebUI);
 

@@ -102,6 +102,7 @@ ErrorOr<JsonValue> HistoryPage::received_request(String const& name, JsonValue c
     result.set("query"sv, query);
     result.set("offset"sv, offset);
     result.set("hasMore"sv, has_more);
+    result.set("privateBrowsing"sv, m_is_private == WebView::IsPrivate::Yes);
     result.set("entries"sv, move(serialized_entries));
 
     return JsonValue { move(result) };

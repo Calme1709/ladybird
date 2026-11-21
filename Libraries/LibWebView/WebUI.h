@@ -72,8 +72,10 @@ protected:
     using RequestHandler = Function<NonnullRefPtr<Core::Promise<JsonValue>>(JsonValue)>;
 
     virtual void register_interfaces() { }
+    virtual void received_message(String name, JsonValue data) override;
     void register_interface(StringView name, Interface);
     void register_shared_interfaces(ReadonlySpan<SharedInterface>);
+    bool has_registered_interface(String const& name) const { return m_interfaces.contains(name); }
     void register_request_handler(StringView name, RequestHandler);
 
     virtual ErrorOr<void> forward_request(u64, String const&, JsonValue) { return Error::from_string_literal("Unknown WebUI request"); }
@@ -81,7 +83,6 @@ protected:
 
 private:
     virtual void die() override;
-    virtual void received_message(String name, JsonValue data) override;
     virtual void received_request(u64 request_id, String name, JsonValue data) override;
 
     WeakPtr<WebContentClient> m_client;
