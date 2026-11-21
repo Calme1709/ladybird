@@ -544,6 +544,9 @@ void BrowserWindow::initialize_ladybird_menu()
     m_ladybird_menu = new QMenu(this);
     m_ladybird_menu->setObjectName("LadybirdMenu");
     m_ladybird_menu->setMinimumWidth(LADYBIRD_MENU_WIDTH);
+    QObject::connect(m_ladybird_menu, &QMenu::aboutToShow, this, [this] {
+        Application::the().set_active_window(*this);
+    });
 
     m_ladybird_menu->addAction(application.new_tab_action());
     m_ladybird_menu->addAction(application.new_window_action());
@@ -1837,6 +1840,11 @@ bool BrowserWindow::eventFilter(QObject* object, QEvent* event)
     auto* widget = as_if<QWidget>(object);
     if (!widget || widget->window() != this)
         return QMainWindow::eventFilter(object, event);
+
+    // The menu bar shares actions across windows and can receive a click before its window is activated.
+    if (event->type() == QEvent::MouseButtonPress && widget == menuWidget())
+        Application::the().set_active_window(*this);
+
     if (!has_chrome_in_titlebar())
         return QMainWindow::eventFilter(object, event);
 

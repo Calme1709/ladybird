@@ -9,11 +9,15 @@
 #include <LibURL/Parser.h>
 #include <UI/Qt/Application.h>
 #include <UI/Qt/ChromeStyle.h>
+#include <UI/Qt/LadybirdButton.h>
 #include <UI/Qt/StringUtils.h>
 #include <UI/Qt/Tab.h>
 
 #include <QAccessible>
 #include <QLabel>
+#include <QMenu>
+#include <QMenuBar>
+#include <QMouseEvent>
 #include <QtCore/qtestsupport_core.h>
 
 static QAccessibleInterface* enabled_clear_history_button(QAccessibleInterface& node)
@@ -53,6 +57,26 @@ static void check_browsing_data_estimates(Ladybird::Tab& tab, QString const& exp
     check_page(URL::about_settings(), QStringLiteral("Settings"));
 }
 
+static void check_menu_window(Ladybird::Application& app, Ladybird::BrowserWindow& window, Ladybird::BrowserWindow& other_window)
+{
+    auto& history_menu = *app.history_menu();
+    auto& menu_bar = *window.menuBar();
+    menu_bar.show();
+    app.set_active_window(other_window);
+    auto position = menu_bar.actionGeometry(history_menu.menuAction()).center();
+    QMouseEvent press(QEvent::MouseButtonPress, position, menu_bar.mapToGlobal(position), Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+    QCoreApplication::sendEvent(&menu_bar, &press);
+    EXPECT(app.active_window_if_any() == &window);
+    history_menu.hide();
+    menu_bar.hide();
+
+    app.set_active_window(other_window);
+    auto& menu = *window.ladybird_button().menu();
+    menu.popup({ 0, 0 });
+    EXPECT(app.active_window_if_any() == &window);
+    menu.hide();
+}
+
 TEST_CASE(clearing_private_browsing_data_shows_the_private_session_confirmation)
 {
     qputenv("QT_QPA_PLATFORM", "offscreen");
@@ -75,6 +99,8 @@ TEST_CASE(clearing_private_browsing_data_shows_the_private_session_confirmation)
 
     check_browsing_data_estimates(*regular_window.current_tab(), QStringLiteral("number"));
     check_browsing_data_estimates(*window.current_tab(), QStringLiteral("OperationError"));
+
+    check_menu_window(*app, window, regular_window);
 
     auto& history_tab = *window.current_tab();
     window.activateWindow();
