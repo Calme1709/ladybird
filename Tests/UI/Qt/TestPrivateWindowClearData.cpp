@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#include <AK/Find.h>
 #include <LibTest/TestCase.h>
 #include <LibURL/InternalURLs.h>
 #include <LibURL/Parser.h>
@@ -14,6 +15,7 @@
 #include <UI/Qt/Tab.h>
 
 #include <QAccessible>
+#include <QAction>
 #include <QLabel>
 #include <QMenu>
 #include <QMenuBar>
@@ -104,6 +106,19 @@ TEST_CASE(clearing_private_browsing_data_shows_the_private_session_confirmation)
 
     auto& history_tab = *window.current_tab();
     window.activateWindow();
+    EXPECT(QTest::qWaitFor([&] { return window.isActiveWindow(); }));
+    auto actions = app->history_menu()->actions();
+    auto clear_data = AK::find_if(actions.begin(), actions.end(), [](auto* action) {
+        return action->shortcut() == QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Delete);
+    });
+    VERIFY(clear_data != actions.end());
+    (*clear_data)->trigger();
+    EXPECT(QTest::qWaitFor([&] { return shows_private_session_confirmation(history_tab); }));
+    EXPECT(window.current_tab() == &history_tab);
+    EXPECT_EQ(window.tab_count(), 1);
+    history_tab.close_popovers();
+    EXPECT(QTest::qWaitFor([&] { return !shows_private_session_confirmation(history_tab); }));
+
     history_tab.navigate(URL::about_history());
     EXPECT(QTest::qWaitFor([&] { return history_tab.title() == QStringLiteral("History") && !history_tab.is_loading(); }));
     history_tab.view().request_accessibility_tree();

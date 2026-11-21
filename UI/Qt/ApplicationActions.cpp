@@ -222,6 +222,11 @@ ApplicationActions::ApplicationActions(PageOptions const& options)
     }));
     m_history_menu->add_separator();
     m_history_menu->add_action(Action::create("Clear Browsing Data"sv, ActionID::ClearBrowsingData, [] {
+        if (auto* window = Application::the().active_window_if_any(); window && window->is_private() == WebView::IsPrivate::Yes) {
+            if (auto* tab = window->current_tab())
+                tab->show_private_session_popover();
+            return;
+        }
         auto url = URL::about_settings();
         url.set_fragment("clearBrowsingData"sv);
         Application::the().activate_or_open_tab_with_url(url);
