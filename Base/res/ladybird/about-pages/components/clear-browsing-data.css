@@ -1,0 +1,98 @@
+.clear-browsing-data-dialog .button-container {
+    display: flex;
+    justify-content: flex-end;
+
+    margin-top: 20px;
+}
+
+.clear-browsing-data-dialog .input-field-container {
+    --row-fill-inset: -6px -10px;
+
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.clear-browsing-data-dialog .input-field-container + .input-field-container {
+    margin-top: 16px;
+}
+
+.clear-browsing-data-dialog .input-field-container label,
+.clear-browsing-data-dialog .input-field-container p {
+    margin: 0;
+}
+
+.clear-browsing-data-dialog {
+    color: var(--text);
+    background-color: var(--surface);
+    box-shadow:
+        0 0 0 1px var(--edge),
+        var(--dialog-shadow);
+
+    width: 90%;
+    max-width: 500px;
+
+    margin: auto;
+
+    border: none;
+    border-radius: 12px;
+    outline: none;
+}
+
+.clear-browsing-data-dialog::backdrop {
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.clear-browsing-data-dialog .dialog-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    padding: 15px 20px;
+}
+
+.clear-browsing-data-dialog .dialog-body {
+    height: auto;
+
+    border-top: 1px solid var(--border-color);
+
+    display: flex;
+    flex-direction: column;
+
+    padding: 15px 20px;
+}
+
+.clear-browsing-data-dialog .dialog-title {
+    font-size: 15px;
+    font-weight: 600;
+}
+
+/* An icon button, filled under the pointer like the toolbar's buttons. */
+.clear-browsing-data-dialog .dialog-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 28px;
+
+    color: inherit;
+    background: none;
+    border: none;
+    border-radius: 6px;
+
+    font-size: 22px;
+    line-height: 1;
+    opacity: 0.8;
+
+    cursor: pointer;
+}
+
+/* NB: The close button's glyph keeps its place at the header's edge, with the fill reaching past it. */
+.clear-browsing-data-dialog .dialog-header .dialog-button {
+    margin-right: -7px;
+}
+
+.clear-browsing-data-dialog .dialog-button:not(:disabled):hover {
+    background-color: var(--control);
+    opacity: 1;
+}
