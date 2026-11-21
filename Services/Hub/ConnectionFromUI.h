@@ -62,6 +62,7 @@ private:
     virtual void ui_did_start() override;
     virtual void add_web_ui_page(String host, String title) override;
     virtual void send_web_ui_message(u64 web_ui_id, String name, JsonValue data) override;
+    virtual void send_web_ui_request_result(u64 web_ui_id, u64 request_id, JsonValue data, Optional<String> error) override;
     virtual Messages::HubServer::WebUiConsumeUserActivationResponse web_ui_consume_user_activation(u64 web_ui_id) override;
     virtual void fetch_search_suggestions(u64 request_id, String engine_name, String query, WebView::IsPrivate is_private) override;
     virtual void post_report(u64 request_id, URL::URL url, Vector<HTTP::Header> headers, ByteString body) override;

@@ -67,9 +67,13 @@ protected:
     virtual void register_interfaces() { }
     void register_interface(StringView name, Interface);
 
+    virtual ErrorOr<void> forward_request(u64, String const&, JsonValue) { return Error::from_string_literal("Unknown WebUI request"); }
+    void send_request_result(u64 request_id, JsonValue data, Optional<String> error);
+
 private:
     virtual void die() override;
     virtual void received_message(String name, JsonValue data) override;
+    virtual void received_request(u64 request_id, String name, JsonValue data) override;
 
     WeakPtr<WebContentClient> m_client;
     Web::PageId m_page_id;

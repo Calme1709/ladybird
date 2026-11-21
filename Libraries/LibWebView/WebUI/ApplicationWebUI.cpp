@@ -57,6 +57,13 @@ void ApplicationWebUI::received_message(String name, JsonValue data)
         callbacks().on_message(m_id, move(name), move(data));
 }
 
+ErrorOr<void> ApplicationWebUI::forward_request(u64 request_id, String const& name, JsonValue data)
+{
+    if (callbacks().on_request)
+        return callbacks().on_request(m_id, request_id, name, move(data));
+    return WebUI::forward_request(request_id, name, move(data));
+}
+
 bool ApplicationWebUI::consume_user_activation()
 {
     if (!has_client())

@@ -6,7 +6,9 @@
 
 #include <AK/JsonObject.h>
 #include <AK/NeverDestroyed.h>
+#include <LibCore/EventLoop.h>
 #include <LibGC/Heap.h>
+#include <LibGC/RootVector.h>
 #include <LibWeb/Bindings/PlatformObject.h>
 #include <LibWeb/Bindings/Wrappable.h>
 #include <LibWeb/Bindings/WrapperWorld.h>
@@ -18,6 +20,8 @@
 #include <LibWeb/HTML/Window.h>
 #include <LibWeb/Internals/WebUI.h>
 #include <LibWeb/WebDriver/JSON.h>
+#include <LibWeb/WebIDL/DOMException.h>
+#include <LibWeb/WebIDL/Promise.h>
 #include <WebContent/WebUIConnection.h>
 
 namespace WebContent {
@@ -59,17 +63,31 @@ WebUIConnection::WebUIConnection(NonnullOwnPtr<IPC::Transport> transport, Web::D
     }));
 }
 
-WebUIConnection::~WebUIConnection()
+void WebUIConnection::die()
 {
-    if (!m_document->window())
+    // NB: The page may already have detached this connection, and deleting a JS property can trigger GC.
+    auto document = GC::make_root(m_document);
+    GC::RootVector<GC::Ref<Web::WebIDL::Promise>> promises;
+    for (auto const& [_, promise] : m_pending_requests)
+        promises.append(promise);
+    m_pending_requests.clear();
+
+    (void)document->relevant_settings_object().realm().global_object().internal_delete(ladybird_property());
+    if (promises.is_empty())
         return;
 
-    (void)m_document->relevant_settings_object().realm().global_object().internal_delete(ladybird_property());
+    // Leave navigation and tab teardown before running promise reactions.
+    Core::deferred_invoke([promises = move(promises)] {
+        Web::HTML::TemporaryExecutionContext context { Web::WebIDL::promise_realm(promises.first()) };
+        for (auto const& promise : promises)
+            Web::WebIDL::reject_promise(promise, Web::WebIDL::AbortError::create("The WebUI connection was closed"_utf16));
+    });
 }
 
 void WebUIConnection::visit_edges(JS::Cell::Visitor& visitor)
 {
     visitor.visit(m_document);
+    visitor.visit(m_pending_requests);
 }
 
 void WebUIConnection::send_message(String name, JsonValue data)
@@ -108,6 +126,40 @@ void WebUIConnection::received_message_from_web_ui(Utf16String const& name, JS::
     }
 
     async_received_message(name.to_utf8(), deserialized_data.value());
+}
+
+Web::WebIDL::ExceptionOr<void> WebUIConnection::received_request_from_web_ui(Utf16String const& name, JS::Value data, GC::Ref<Web::WebIDL::Promise> promise)
+{
+    auto browsing_context = m_document->browsing_context();
+    if (!browsing_context || !m_document->is_fully_active())
+        return Web::WebIDL::InvalidStateError::create("The WebUI document is no longer active"_utf16);
+
+    auto serialized = Web::WebDriver::json_clone(*browsing_context, data);
+    if (serialized.is_error())
+        return Web::WebIDL::DataCloneError::create(Utf16String::from_utf8(serialized.error().message));
+
+    auto request_id = m_next_request_id++;
+    if (post_message(Messages::WebUIClient::ReceivedRequest(request_id, name.to_utf8(), serialized.release_value())).is_error())
+        return Web::WebIDL::AbortError::create("Unable to send the WebUI request"_utf16);
+
+    m_pending_requests.set(request_id, promise);
+    return {};
+}
+
+void WebUIConnection::request_result(u64 request_id, JsonValue data, Optional<String> error)
+{
+    auto promise = GC::make_root(m_pending_requests.take(request_id).release_value());
+
+    Web::HTML::TemporaryExecutionContext context { Web::WebIDL::promise_realm(*promise), Web::HTML::TemporaryExecutionContext::CallbacksEnabled::Yes };
+
+    auto browsing_context = m_document->browsing_context();
+    if (!browsing_context || !m_document->is_fully_active())
+        return Web::WebIDL::reject_promise(*promise, Web::WebIDL::AbortError::create("The WebUI document is no longer active"_utf16));
+
+    if (error.has_value())
+        return Web::WebIDL::reject_promise(*promise, Web::WebIDL::OperationError::create(Utf16String::from_utf8(*error)));
+
+    Web::WebIDL::resolve_promise(*promise, Web::WebDriver::json_value_to_js_value(*browsing_context, data));
 }
 
 }

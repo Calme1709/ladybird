@@ -1,3 +1,4 @@
 endpoint WebUIServer {
     send_message(String name, JsonValue data) =|
+    request_result(u64 request_id, JsonValue data, Optional<String> error) =|
 }

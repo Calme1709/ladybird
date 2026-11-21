@@ -1,4 +1,13 @@
 if (BUILD_TESTING AND NOT WIN32)
+    if (LINUX)
+        if (NOT TARGET Qt6::QOffscreenIntegrationPlugin)
+            find_package(Qt6QOffscreenIntegrationPlugin QUIET PATHS "${Qt6Gui_DIR}" NO_DEFAULT_PATH)
+        endif()
+        if (TARGET Qt6::QOffscreenIntegrationPlugin)
+            ladybird_python_test(test-web-ui-requests.py ARGS $<TARGET_FILE:WebDriver>)
+        endif()
+    endif()
+
     if (APPLE OR LINUX)
         ladybird_python_test(test-devtools-catch-up-layout.py ARGS $<TARGET_FILE:ladybird>)
         ladybird_python_test(test-devtools-client-follows-the-tab.py ARGS $<TARGET_FILE:ladybird>)

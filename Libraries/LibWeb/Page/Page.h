@@ -66,6 +66,7 @@
 #include <LibWeb/Page/PageHoverLink.h>
 #include <LibWeb/Page/ScreenWakeLockHandle.h>
 #include <LibWeb/Painting/ChromeMetrics.h>
+#include <LibWeb/WebIDL/ExceptionOr.h>
 #include <LibWebCommon/CSS/PreferredColorScheme.h>
 #include <LibWebCommon/CSS/PreferredContrast.h>
 #include <LibWebCommon/CSS/PreferredMotion.h>
@@ -1078,6 +1079,7 @@ public:
     virtual void page_did_take_screenshot(Gfx::ShareableBitmap const&) { }
 
     virtual void received_message_from_web_ui([[maybe_unused]] Utf16String const& name, [[maybe_unused]] JS::Value data) { }
+    virtual WebIDL::ExceptionOr<void> received_request_from_web_ui(DOM::Document const&, Utf16String const&, JS::Value, GC::Ref<WebIDL::Promise>) { VERIFY_NOT_REACHED(); }
 
     virtual bool is_headless() const = 0;
 

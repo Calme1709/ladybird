@@ -14,6 +14,7 @@
 
 namespace Web::WebDriver {
 
+WEB_API JS::Value json_value_to_js_value(HTML::BrowsingContext const&, JsonValue const&);
 WEB_API Response json_clone(HTML::BrowsingContext const&, JS::Value);
 WEB_API ErrorOr<JS::Value, WebDriver::Error> json_deserialize(HTML::BrowsingContext const&, JsonValue const&);
 

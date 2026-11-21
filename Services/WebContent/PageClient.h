@@ -438,6 +438,7 @@ private:
     virtual void page_did_change_accessibility_tree() override;
     virtual void page_did_take_screenshot(Gfx::ShareableBitmap const& screenshot) override;
     virtual void received_message_from_web_ui(Utf16String const& name, JS::Value data) override;
+    virtual Web::WebIDL::ExceptionOr<void> received_request_from_web_ui(Web::DOM::Document const&, Utf16String const&, JS::Value, GC::Ref<Web::WebIDL::Promise>) override;
     virtual void page_did_block_resource(URL::URL const&, StringView kind) override;
     virtual void page_did_start_network_request(u64 request_id, URL::URL const&, ByteString const&, Vector<HTTP::Header> const&, ReadonlyBytes, Optional<String>, String const& referrer_policy, bool is_navigation_request, Web::Fetch::Infrastructure::Request::Priority) override;
     virtual void page_did_receive_network_response_headers(u64 request_id, u32 status_code, Optional<String>, Vector<HTTP::Header> const&, Requests::CacheState) override;
@@ -448,6 +449,7 @@ private:
     virtual void page_did_report_navigation_violation_of_remote_client(Web::HTML::RemoteClientNavigation const&, u64 policy_index, Web::ContentSecurityPolicy::RemoteViolationDirective, bool url_is_https) override;
     virtual void page_did_report_navigation_violation_of_container_document(Web::HTML::CrossProcessId navigable_id, Utf16String const& navigation_id, u64 policy_index, Web::ContentSecurityPolicy::RemoteViolationDirective, bool url_is_https) override;
 
+    void close_web_ui();
     void setup_palette();
     ConnectionFromClient& client() const;
     void send_dom_mutation(Web::DOM::Node const& target, WebView::Mutation mutation);

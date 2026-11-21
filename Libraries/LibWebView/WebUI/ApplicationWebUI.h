@@ -22,6 +22,7 @@ public:
     struct Callbacks {
         Function<void(u64 id, String const& host, IsPrivate)> on_open;
         Function<void(u64 id, String name, JsonValue data)> on_message;
+        Function<ErrorOr<void>(u64 id, u64 request_id, String const& name, JsonValue data)> on_request;
         Function<void(u64 id)> on_close;
     };
     static void set_callbacks(Callbacks);
@@ -31,6 +32,7 @@ public:
     virtual ~ApplicationWebUI() override;
 
     void send_to_page(String const& name, JsonValue const& data);
+    using WebUI::send_request_result;
 
     // NB: Some actions of a page, such as opening a download, need the user's own click in it.
     bool consume_user_activation();
@@ -38,6 +40,7 @@ public:
 private:
     virtual void register_interfaces() override;
     virtual void received_message(String name, JsonValue data) override;
+    virtual ErrorOr<void> forward_request(u64 request_id, String const& name, JsonValue data) override;
 
     u64 m_id { 0 };
 };

@@ -1,3 +1,4 @@
 endpoint WebUIClient {
     received_message(String name, JsonValue data) =|
+    received_request(u64 request_id, String name, JsonValue data) =|
 }

@@ -68,6 +68,7 @@
 #include <LibWeb/WebDriver/BiDi/BiDi.h>
 #include <LibWeb/WebDriver/InputState.h>
 #include <LibWeb/WebDriver/UserPrompt.h>
+#include <LibWeb/WebIDL/DOMException.h>
 #include <LibWeb/WebIDL/Promise.h>
 #include <LibWebCommon/Geolocation/GeolocationPositionErrorCode.h>
 #include <LibWebCommon/HTML/NavigationPopulationRequest.h>
@@ -1054,7 +1055,7 @@ void PageClient::page_did_change_active_document_in_top_level_browsing_context(W
     clear_pending_dom_mutations();
 
     if (m_web_ui && &m_web_ui->document() != &document)
-        m_web_ui.clear();
+        close_web_ui();
 
     // The output that DevTools gets once it asks belongs to the document that the tab shows.
     if (!document.console_client() || document.console_client().ptr() != m_top_level_document_console_client.ptr().ptr())
@@ -1835,6 +1836,7 @@ void PageClient::page_did_close()
 
     // The heap sweeps a closed page in slices, so its timers can still fire once the cells they would use are gone.
     m_is_closed = true;
+    close_web_ui();
 
     // A closed page has no DevTools client.
     if (exchange(m_has_devtools_client, false)) {
@@ -2583,10 +2585,26 @@ ErrorOr<void> PageClient::connect_to_web_ui(IPC::TransportHandle handle)
     return {};
 }
 
+void PageClient::close_web_ui()
+{
+    if (auto web_ui = exchange(m_web_ui, {}))
+        web_ui->shutdown();
+}
+
 void PageClient::received_message_from_web_ui(Utf16String const& name, JS::Value data)
 {
     if (m_web_ui)
         m_web_ui->received_message_from_web_ui(name, data);
+}
+
+Web::WebIDL::ExceptionOr<void> PageClient::received_request_from_web_ui(Web::DOM::Document const& document, Utf16String const& name, JS::Value data, GC::Ref<Web::WebIDL::Promise> promise)
+{
+    // NB: Hold the connection alive while serializing the request, which can run script and close it.
+    auto web_ui = m_web_ui;
+    if (!web_ui || &web_ui->document() != &document || !web_ui->is_open())
+        return Web::WebIDL::InvalidStateError::create("The WebUI connection is closed"_utf16);
+
+    return web_ui->received_request_from_web_ui(name, data, promise);
 }
 
 void PageClient::page_did_block_resource(URL::URL const& url, StringView kind)

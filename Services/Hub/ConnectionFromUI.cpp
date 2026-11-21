@@ -44,6 +44,7 @@ ConnectionFromUI::ConnectionFromUI(NonnullOwnPtr<IPC::Transport> transport)
     WebView::ApplicationWebUI::set_callbacks({
         .on_open = [this](u64 id, String const& host, WebView::IsPrivate is_private) { async_web_ui_opened(id, host, is_private); },
         .on_message = [this](u64 id, String name, JsonValue data) { async_web_ui_message(id, move(name), move(data)); },
+        .on_request = [this](u64 id, u64 request_id, String const& name, JsonValue data) { return post_message(Messages::HubClient::WebUiRequest(id, request_id, name, move(data))); },
         .on_close = [this](u64 id) { async_web_ui_closed(id); },
     });
     (void)WebView::TabPerformanceMonitor::the();
@@ -548,6 +549,12 @@ void ConnectionFromUI::send_web_ui_message(u64 web_ui_id, String name, JsonValue
 {
     if (auto* web_ui = WebView::ApplicationWebUI::find(web_ui_id))
         web_ui->send_to_page(name, data);
+}
+
+void ConnectionFromUI::send_web_ui_request_result(u64 web_ui_id, u64 request_id, JsonValue data, Optional<String> error)
+{
+    if (auto* web_ui = WebView::ApplicationWebUI::find(web_ui_id))
+        web_ui->send_request_result(request_id, move(data), move(error));
 }
 
 Messages::HubServer::WebUiConsumeUserActivationResponse ConnectionFromUI::web_ui_consume_user_activation(u64 web_ui_id)

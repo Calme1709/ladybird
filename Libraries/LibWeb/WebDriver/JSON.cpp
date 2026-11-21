@@ -141,6 +141,11 @@ static JS::Value json_value_to_js_value(JS::Realm& realm, JsonValue const& value
     VERIFY_NOT_REACHED();
 }
 
+JS::Value json_value_to_js_value(HTML::BrowsingContext const& browsing_context, JsonValue const& value)
+{
+    return json_value_to_js_value(HTML::relevant_realm(*browsing_context.active_document()), value);
+}
+
 // https://w3c.github.io/webdriver/#dfn-clone-an-object
 template<typename ResultType, typename CloneAlgorithm>
 static ErrorOr<ResultType, WebDriver::Error> clone_an_object(HTML::BrowsingContext const& browsing_context, JS::Object const& value, SeenMap& seen, CloneAlgorithm const& clone_algorithm)

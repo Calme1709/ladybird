@@ -142,4 +142,19 @@ void WebUI::received_message(String name, JsonValue data)
     interface.value()(move(data));
 }
 
+void WebUI::received_request(u64 request_id, String name, JsonValue data)
+{
+    if (!has_client())
+        return send_request_result(request_id, {}, "The WebUI client has closed."_string);
+
+    if (auto result = forward_request(request_id, name, move(data)); result.is_error())
+        send_request_result(request_id, {}, MUST(String::formatted("{}: {}", name, result.error())));
+}
+
+void WebUI::send_request_result(u64 request_id, JsonValue data, Optional<String> error)
+{
+    if (post_message(Messages::WebUIServer::RequestResult(request_id, move(data), move(error))).is_error())
+        shutdown();
+}
+
 }

@@ -45,6 +45,15 @@ def launch_webdriver(webdriver_binary, *arguments, output=None, **popen_argument
     return process, int(listening.rsplit(b":", 1)[1])
 
 
+def stop_webdriver(webdriver):
+    webdriver.terminate()
+    try:
+        webdriver.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        webdriver.kill()
+        webdriver.wait()
+
+
 def wait_for_listening_line(process, output):
     deadline = time.monotonic() + EVENT_TIMEOUT_SECONDS
     while True:
@@ -146,12 +155,7 @@ def run_test(webdriver_binary):
             if payload != expected_payload:
                 raise AssertionError(f"Queued Delete Session failed with HTTP {status}: {response_body}")
     finally:
-        webdriver.terminate()
-        try:
-            webdriver.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            webdriver.kill()
-            webdriver.wait()
+        stop_webdriver(webdriver)
 
     if webdriver.returncode not in (0, -15):
         raise RuntimeError(f"WebDriver exited with status {webdriver.returncode}")

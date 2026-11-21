@@ -30,4 +30,9 @@ void WebUI::send_message(Utf16String const& name, JS::Value data)
     page().client().received_message_from_web_ui(name, data);
 }
 
+WebIDL::ExceptionOr<void> WebUI::request(Utf16String const& name, JS::Value data, GC::Ref<WebIDL::Promise> promise)
+{
+    return page().client().received_request_from_web_ui(window().associated_document(), name, data, promise);
+}
+
 }

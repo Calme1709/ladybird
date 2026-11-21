@@ -776,6 +776,16 @@ void HubConnection::web_ui_message(u64 web_ui_id, String name, JsonValue data)
     Application::web_ui_pages().page_received_message(web_ui_id, name, data);
 }
 
+void HubConnection::web_ui_request(u64 web_ui_id, u64 request_id, String name, JsonValue data)
+{
+    auto result = Application::web_ui_pages().page_received_request(web_ui_id, name, data);
+    if (result.is_error())
+        return async_send_web_ui_request_result(web_ui_id, request_id, {}, MUST(String::formatted("{}", result.error())));
+
+    if (post_message(Messages::HubServer::SendWebUiRequestResult(web_ui_id, request_id, result.release_value(), {})).is_error())
+        async_send_web_ui_request_result(web_ui_id, request_id, {}, "Could not send WebUI request result"_string);
+}
+
 void HubConnection::web_ui_closed(u64 web_ui_id)
 {
     Application::web_ui_pages().page_closed(web_ui_id);

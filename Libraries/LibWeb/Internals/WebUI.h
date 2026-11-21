@@ -23,6 +23,7 @@ public:
     virtual ~WebUI() override;
 
     void send_message(Utf16String const& name, JS::Value data);
+    WebIDL::ExceptionOr<void> request(Utf16String const& name, JS::Value data, GC::Ref<WebIDL::Promise>);
 
 private:
     explicit WebUI(HTML::Window&);

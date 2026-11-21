@@ -1,4 +1,5 @@
 [Exposed=Nobody]
 interface WebUI {
     undefined sendMessage(DOMString name, optional any data = null);
+    [CreatesPromise] Promise<any> request(DOMString name, optional any data = null);
 };

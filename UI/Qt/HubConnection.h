@@ -150,6 +150,7 @@ private:
     virtual void settings_changed(ByteString settings_json, u64 last_applied_change_id) override;
     virtual void web_ui_opened(u64 web_ui_id, String host, WebView::IsPrivate is_private) override;
     virtual void web_ui_message(u64 web_ui_id, String name, JsonValue data) override;
+    virtual void web_ui_request(u64 web_ui_id, u64 request_id, String name, JsonValue data) override;
     virtual void web_ui_closed(u64 web_ui_id) override;
     virtual void view_request_context_menu(u64 view_id, WebView::ContextMenuRequest request) override;
     virtual void view_did_make_link_to_highlight(u64 view_id, Optional<URL::URL> url) override;

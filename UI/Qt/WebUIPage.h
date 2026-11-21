@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <AK/Error.h>
 #include <AK/Function.h>
 #include <AK/HashMap.h>
 #include <AK/JsonValue.h>
@@ -24,6 +25,7 @@ public:
     virtual ~WebUIPage() = default;
 
     virtual void received_message(String const& name, JsonValue const& data) = 0;
+    virtual ErrorOr<JsonValue> received_request(String const&, JsonValue const&) { return Error::from_string_literal("Unknown WebUI request"); }
 
 protected:
     explicit WebUIPage(u64 web_ui_id)
@@ -53,6 +55,7 @@ public:
 
     void page_opened(u64 web_ui_id, String const& host, WebView::IsPrivate);
     void page_received_message(u64 web_ui_id, String const& name, JsonValue const& data);
+    ErrorOr<JsonValue> page_received_request(u64 web_ui_id, String const& name, JsonValue const& data);
     void page_closed(u64 web_ui_id);
 
 private:
