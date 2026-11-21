@@ -536,12 +536,9 @@
                 state.query = query;
                 render();
 
-                ladybird.sendMessage("loadHistoryEntries", {
-                    requestId,
-                    query,
-                    offset,
-                    limit: PAGE_SIZE,
-                });
+                Promise.try(() => ladybird.request("loadHistoryEntries", { query, offset, limit: PAGE_SIZE }))
+                    .catch(() => null)
+                    .then(data => handleHistoryResponse(data, requestId));
             }
 
             function scheduleSearch() {
@@ -571,13 +568,17 @@
                 requestHistory(0);
             });
 
-            document.addEventListener("WebUIMessage", event => {
-                if (event.detail.name !== "loadHistoryEntries") return;
-
-                const data = event.detail.data;
-                if (data.requestId !== latestRequestId) return;
+            function handleHistoryResponse(data, requestId) {
+                if (requestId !== latestRequestId) return;
 
                 state.isLoading = false;
+                if (data === null) {
+                    render();
+                    historyStatus.textContent = "Could not load history.";
+                    historyEmpty.classList.add("hidden");
+                    return;
+                }
+
                 state.hasMore = Boolean(data.hasMore);
                 state.query = data.query || "";
 
@@ -588,7 +589,7 @@
                 }
 
                 render();
-            });
+            }
         </script>
     </body>
 </html>

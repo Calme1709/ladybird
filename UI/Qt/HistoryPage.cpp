@@ -60,24 +60,24 @@ HistoryPage::HistoryPage(u64 web_ui_id, WebView::IsPrivate is_private)
 
 void HistoryPage::received_message(String const& name, JsonValue const& data)
 {
-    if (name == "loadHistoryEntries"sv)
-        load_history_entries(data);
-    else if (name == "removeHistoryEntry"sv)
+    if (name == "removeHistoryEntry"sv)
         remove_history_entry(data);
     else if (name == "forgetHistorySite"sv)
         forget_history_site(data);
 }
 
-void HistoryPage::load_history_entries(JsonValue const& data)
+ErrorOr<JsonValue> HistoryPage::received_request(String const& name, JsonValue const& data)
 {
+    if (name != "loadHistoryEntries"sv)
+        return WebUIPage::received_request(name, data);
+
     if (!data.is_object())
-        return;
+        return Error::from_string_literal("History request data must be an object");
 
     auto const& object = data.as_object();
 
     auto offset = object.get_integer<size_t>("offset"sv).value_or(0);
     auto limit = object.get_integer<size_t>("limit"sv);
-    auto request_id = object.get_integer<i64>("requestId"sv).value_or(0);
     auto query = object.get_string("query"sv).value_or(String {});
 
     if (limit.has_value())
@@ -99,13 +99,12 @@ void HistoryPage::load_history_entries(JsonValue const& data)
         serialized_entries.must_append(serialize_history_entry(entry));
 
     JsonObject result;
-    result.set("requestId"sv, request_id);
     result.set("query"sv, query);
     result.set("offset"sv, offset);
     result.set("hasMore"sv, has_more);
     result.set("entries"sv, move(serialized_entries));
 
-    send_message("loadHistoryEntries"_string, move(result));
+    return JsonValue { move(result) };
 }
 
 void HistoryPage::remove_history_entry(JsonValue const& data)

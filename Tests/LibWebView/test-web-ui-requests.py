@@ -33,14 +33,19 @@ def run_test(webdriver_binary):
                 const cyclic = {};
                 cyclic.self = cyclic;
                 const results = await Promise.allSettled([
+                    ladybird.request('loadHistoryEntries', { query: 'first' }),
+                    ladybird.request('loadHistoryEntries', { query: 'second' }),
+                    ladybird.request('loadHistoryEntries'),
                     ladybird.request('unknownHistoryRequest'),
-                    ladybird.request('unknownHistoryRequest', cyclic),
+                    ladybird.request('loadHistoryEntries', cyclic),
                 ]);
-                return results.map(result => result.reason?.name);
+                return results.map(result =>
+                    result.status === 'fulfilled' ? result.value?.query : result.reason.name
+                );
             })();
         """,
         )
-        assert results == ["OperationError", "DataCloneError"], results
+        assert results == ["first", "second", "OperationError", "OperationError", "DataCloneError"], results
 
         # Observe the old document's promise from a window that survives the navigation.
         history_window = webdriver.request(port, "GET", f"{path}/window")["value"]
@@ -54,7 +59,7 @@ def run_test(webdriver_binary):
             const historyWindow = window.opener;
             return new Promise(resolve => {
                 historyWindow.addEventListener('pagehide', () => {
-                    historyWindow.ladybird.request('unknownHistoryRequest', {}).then(
+                    historyWindow.ladybird.request('loadHistoryEntries', {}).then(
                         () => resolve('fulfilled'), error => resolve(error.name));
                 }, { once: true });
                 historyWindow.location.replace('about:blank');
@@ -64,7 +69,7 @@ def run_test(webdriver_binary):
         assert outcome == "AbortError", outcome
         webdriver.request(port, "POST", f"{path}/window", {"handle": history_window})
         assert webdriver.current_url(port, session) == "about:blank"
-        print("PASS: WebUI requests reject errors and abort on navigation")
+        print("PASS: WebUI requests resolve independently, reject errors, and abort on navigation")
     finally:
         helpers.stop_webdriver(process)
 

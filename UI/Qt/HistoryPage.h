@@ -15,9 +15,9 @@ public:
     HistoryPage(u64 web_ui_id, WebView::IsPrivate);
 
     virtual void received_message(String const& name, JsonValue const& data) override;
+    virtual ErrorOr<JsonValue> received_request(String const& name, JsonValue const& data) override;
 
 private:
-    void load_history_entries(JsonValue const&);
     void remove_history_entry(JsonValue const&);
     void forget_history_site(JsonValue const&);
 
