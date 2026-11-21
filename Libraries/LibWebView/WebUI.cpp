@@ -5,6 +5,7 @@
  */
 
 #include <AK/NeverDestroyed.h>
+#include <LibCore/Promise.h>
 #include <LibIPC/Transport.h>
 #include <LibIPC/TransportHandle.h>
 #include <LibWebView/WebContentClient.h>
@@ -142,10 +143,27 @@ void WebUI::received_message(String name, JsonValue data)
     interface.value()(move(data));
 }
 
+void WebUI::register_request_handler(StringView name, RequestHandler handler)
+{
+    auto result = m_request_handlers.set(name, move(handler));
+    VERIFY(result == HashSetResult::InsertedNewEntry);
+}
+
 void WebUI::received_request(u64 request_id, String name, JsonValue data)
 {
     if (!has_client())
         return send_request_result(request_id, {}, "The WebUI client has closed."_string);
+
+    if (auto handler = m_request_handlers.get(name); handler.has_value()) {
+        auto reply = [weak_ui = make_weak_ptr<WebUI>(), request_id](JsonValue result, Optional<String> error = {}) {
+            if (auto ui = weak_ui.strong_ref())
+                ui->send_request_result(request_id, move(result), move(error));
+        };
+        (*handler)(move(data))
+            ->when_resolved([reply](JsonValue& result) { reply(move(result)); })
+            .when_rejected([reply](Error const& error) { reply({}, MUST(String::formatted("{}", error))); });
+        return;
+    }
 
     if (auto result = forward_request(request_id, name, move(data)); result.is_error())
         send_request_result(request_id, {}, MUST(String::formatted("{}: {}", name, result.error())));

@@ -12,9 +12,57 @@ import subprocess
 import tempfile
 import threading
 
+from contextlib import closing
 from pathlib import Path
 
 helpers = runpy.run_path(str(Path(__file__).with_name("test-webdriver-delete-session.py")))
+BiDiConnection = runpy.run_path(str(Path(__file__).with_name("test-webdriver-bidi.py")))["BiDiConnection"]
+
+
+def check_browsing_data_estimates(command, script, websocket_url):
+    with closing(BiDiConnection(websocket_url)) as bidi:
+        bidi.command(
+            "script.addPreloadScript",
+            {
+                "functionDeclaration": """() => {
+                document.addEventListener('WebUILoaded', () => {
+                    window.estimates = [];
+                    const request = ladybird.request.bind(ladybird);
+                    ladybird.request = (name, data) => {
+                        const result = request(name, data);
+                        if (name !== 'estimateBrowsingDataSizes') return result;
+                        const held = Promise.withResolvers();
+                        estimates.push(async size => {
+                            const sizes = await result;
+                            held.resolve({...sizes, totalCacheSize: size, totalSiteDataSize: 0, cacheSizeSinceRequestedTime: size});
+                        });
+                        return held.promise;
+                    };
+                }, {once: true, capture: true});
+            }"""
+            },
+        )
+        command("url", {"url": "about:settings#clearBrowsingData"})
+        command("timeouts", {"implicit": 5000})
+        command("element", {"using": "css selector", "value": "dialog[open] #clear-browsing-data-time-range"})
+        count = script("return estimates.length")
+        assert count == 1, f"Opening the Settings deep link requested {count} browsing data estimates"
+
+    labels = script("""
+        return (async () => {
+            const range = document.querySelector('#clear-browsing-data-time-range');
+            range.value = 'lastHour';
+            range.dispatchEvent(new Event('change'));
+            await estimates[1](20);
+            await estimates[0](10);
+            await new Promise(resolve => setTimeout(resolve, 0));
+            return [
+                document.querySelector('#clear-browsing-data-cached-files-size').innerText,
+                document.querySelector('#browsing-data-total-size').innerText,
+            ];
+        })();
+    """)
+    assert all("20 bytes" in label for label in labels), f"An older estimate overwrote Settings: {labels}"
 
 
 def run_test(webdriver_binary):
@@ -40,7 +88,15 @@ def run_test(webdriver_binary):
         process, port = helpers["launch_webdriver"](webdriver_binary, "--headless", "--profile-path", directory)
         session = None
         try:
-            session = helpers["create_session"](port)
+            status, payload, raw = helpers["request"](
+                port,
+                "POST",
+                "/session",
+                {"capabilities": {"alwaysMatch": {"ladybird:headless": True, "webSocketUrl": True}}},
+            )
+            assert status == 200, raw
+            session = payload["value"]["sessionId"]
+            websocket_url = payload["value"]["capabilities"]["webSocketUrl"]
 
             def command(path, body):
                 status, payload, raw = helpers["request"](port, "POST", f"/session/{session}/{path}", body)
@@ -190,6 +246,7 @@ def run_test(webdriver_binary):
             changes = change("setContentBlockerEnabled", False)
             assert set(changes) == {"contentBlockers"}, changes
             assert script("return !document.querySelector('#enable-content-blocking').checked;")
+            check_browsing_data_estimates(command, script, websocket_url)
             print("PASS: settings changes contain only changed fields, preserve edits, and track downloads")
         finally:
             release_download.set()

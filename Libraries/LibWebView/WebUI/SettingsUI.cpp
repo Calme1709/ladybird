@@ -187,9 +187,7 @@ void SettingsUI::register_interfaces()
         remove_all_site_setting_filters(data);
     });
 
-    register_interface("estimateBrowsingDataSizes"sv, [this](auto const& data) {
-        estimate_browsing_data_sizes(data);
-    });
+    register_request_handler("estimateBrowsingDataSizes"sv, estimate_browsing_data_sizes);
     register_interface("clearBrowsingData"sv, [this](auto const& data) {
         clear_browsing_data(data);
     });
@@ -655,10 +653,10 @@ void SettingsUI::remove_all_site_setting_filters(JsonValue const& site_setting)
     }
 }
 
-void SettingsUI::estimate_browsing_data_sizes(JsonValue const& options)
+NonnullRefPtr<Core::Promise<JsonValue>> SettingsUI::estimate_browsing_data_sizes(JsonValue const& options)
 {
     if (!options.is_object())
-        return;
+        return Core::Promise<JsonValue>::rejected(Error::from_string_literal("Browsing data estimate options must be an object"));
 
     auto& application = Application::the();
 
@@ -668,8 +666,8 @@ void SettingsUI::estimate_browsing_data_sizes(JsonValue const& options)
         return UnixDateTime::earliest();
     }();
 
-    application.estimate_browsing_data_size_accessed_since(since)
-        ->when_resolved([weak_this = make_weak_ptr<SettingsUI>()](Application::BrowsingDataSizes const& sizes) {
+    return application.estimate_browsing_data_size_accessed_since(since)
+        ->map<JsonValue>([](Application::BrowsingDataSizes const& sizes) {
             JsonObject result;
 
             result.set("cacheSizeSinceRequestedTime"sv, sizes.cache_size_since_requested_time);
@@ -678,11 +676,7 @@ void SettingsUI::estimate_browsing_data_sizes(JsonValue const& options)
             result.set("siteDataSizeSinceRequestedTime"sv, sizes.site_data_size_since_requested_time);
             result.set("totalSiteDataSize"sv, sizes.total_site_data_size);
 
-            if (auto self = weak_this.strong_ref())
-                self->async_send_message("estimatedBrowsingDataSizes"sv, move(result));
-        })
-        .when_rejected([](Error const& error) {
-            dbgln("Failed to estimate browsing data sizes: {}", error);
+            return JsonValue { move(result) };
         });
 }
 

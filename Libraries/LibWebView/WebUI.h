@@ -17,6 +17,7 @@
 #include <AK/StringView.h>
 #include <AK/Types.h>
 #include <AK/WeakPtr.h>
+#include <LibCore/Forward.h>
 #include <LibIPC/ConnectionToServer.h>
 #include <LibIPC/Transport.h>
 #include <LibWebCommon/Page/PageId.h>
@@ -63,9 +64,11 @@ protected:
     bool has_client() const { return !m_client.is_null(); }
 
     using Interface = Function<void(JsonValue)>;
+    using RequestHandler = Function<NonnullRefPtr<Core::Promise<JsonValue>>(JsonValue)>;
 
     virtual void register_interfaces() { }
     void register_interface(StringView name, Interface);
+    void register_request_handler(StringView name, RequestHandler);
 
     virtual ErrorOr<void> forward_request(u64, String const&, JsonValue) { return Error::from_string_literal("Unknown WebUI request"); }
     void send_request_result(u64 request_id, JsonValue data, Optional<String> error);
@@ -80,6 +83,7 @@ private:
     String m_host;
 
     HashMap<StringView, Interface> m_interfaces;
+    HashMap<StringView, RequestHandler> m_request_handlers;
 };
 
 #define WEB_UI(WebUIType)                                                                                                                       \

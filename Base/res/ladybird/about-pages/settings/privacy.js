@@ -57,12 +57,18 @@ function computeTimeRange() {
     }
 }
 
+let latestEstimate;
+
 function estimateBrowsingDataSizes() {
     const since = computeTimeRange();
 
-    ladybird.sendMessage("estimateBrowsingDataSizes", {
-        since: since?.epochMilliseconds,
-    });
+    const estimate = ladybird.request("estimateBrowsingDataSizes", { since: since?.epochMilliseconds });
+    latestEstimate = estimate;
+    estimate
+        .then(sizes => {
+            if (estimate === latestEstimate) updateBrowsingDataSizes(sizes);
+        })
+        .catch(error => console.error("Failed to estimate browsing data sizes", error));
 }
 
 registerDialogDeepLink({
@@ -115,13 +121,13 @@ globalPrivacyControlToggle.addEventListener("change", () => {
     ladybird.sendMessage("setGlobalPrivacyControl", globalPrivacyControlToggle.checked);
 });
 
-document.addEventListener("WebUILoaded", estimateBrowsingDataSizes);
+document.addEventListener("WebUILoaded", () => {
+    if (location.hash !== "#clearBrowsingData") estimateBrowsingDataSizes();
+});
 
 document.addEventListener("WebUIMessage", event => {
     if (event.detail.name === "loadSettings") {
         loadSettings(event.detail.data);
-    } else if (event.detail.name === "estimatedBrowsingDataSizes") {
-        updateBrowsingDataSizes(event.detail.data);
     } else if (event.detail.name === "clearedBrowsingData") {
         estimateBrowsingDataSizes();
     }
