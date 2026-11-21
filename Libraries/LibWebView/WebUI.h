@@ -43,6 +43,11 @@ public:
         PageType type;
     };
 
+    struct SharedInterface {
+        StringView name;
+        void (*handler)(WebUI&, WebContentClient&, JsonValue const&);
+    };
+
     static Vector<Page> pages();
     static Optional<Page> page_for_host(StringView);
 
@@ -68,6 +73,7 @@ protected:
 
     virtual void register_interfaces() { }
     void register_interface(StringView name, Interface);
+    void register_shared_interfaces(ReadonlySpan<SharedInterface>);
     void register_request_handler(StringView name, RequestHandler);
 
     virtual ErrorOr<void> forward_request(u64, String const&, JsonValue) { return Error::from_string_literal("Unknown WebUI request"); }

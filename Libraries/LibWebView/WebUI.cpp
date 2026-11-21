@@ -129,6 +129,15 @@ void WebUI::register_interface(StringView name, Interface interface)
     VERIFY(result == HashSetResult::InsertedNewEntry);
 }
 
+void WebUI::register_shared_interfaces(ReadonlySpan<SharedInterface> interfaces)
+{
+    for (auto const& interface : interfaces) {
+        register_interface(interface.name, [this, handler = interface.handler](JsonValue const& data) {
+            handler(*this, client(), data);
+        });
+    }
+}
+
 void WebUI::received_message(String name, JsonValue data)
 {
     if (!has_client())

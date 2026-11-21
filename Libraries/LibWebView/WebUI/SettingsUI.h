@@ -95,8 +95,6 @@ private:
 
     OwnPtr<SettingsUISitePermissionsObserver> m_site_permissions_observer;
 
-    static NonnullRefPtr<Core::Promise<JsonValue>> estimate_browsing_data_sizes(JsonValue const&);
-    void clear_browsing_data(JsonValue const&);
     void set_global_privacy_control(JsonValue const&);
     void set_crash_report_sending(JsonValue const&);
 
